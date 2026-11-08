@@ -172,6 +172,10 @@ impl Configuration {
 }
 
 fn cmake_path(path: &Path) -> Result<String> {
+    #[cfg(windows)]
+    let path = path
+        .canonicalize()
+        .context("cannot resolve the Windows path for the obf preset")?;
     let path = path
         .to_str()
         .context("the obf preset requires UTF-8 paths")?;
@@ -181,7 +185,14 @@ fn cmake_path(path: &Path) -> Result<String> {
     );
     #[cfg(windows)]
     {
-        Ok(path.replace('\\', "/"))
+        let path = path.replace('\\', "/");
+        // CMake normalizes Windows extended-length paths for CMAKE_SOURCE_DIR.
+        // Use the same spelling so the protected-root guard matches that directory.
+        if let Some(network) = path.strip_prefix("//?/UNC/") {
+            Ok(format!("//{network}"))
+        } else {
+            Ok(path.strip_prefix("//?/").unwrap_or(&path).to_owned())
+        }
     }
     #[cfg(not(windows))]
     {

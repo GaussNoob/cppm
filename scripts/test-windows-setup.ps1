@@ -40,6 +40,14 @@ try {
     }
     $report = cppm doctor --json | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or -not $report.ok) { throw 'Fresh-terminal environment failed cppm doctor.' }
+    $configuration = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'windows-tools.json') -Raw | ConvertFrom-Json
+    foreach ($package in $configuration.packages) {
+        $name, $version = $package -split '=='
+        $check = $report.checks | Where-Object { $_.name -eq $name }
+        if (-not $check -or $check.detail -notmatch [regex]::Escape($version)) {
+            throw "cppm must use its private $name $version; got $($check.detail)."
+        }
+    }
     $project = Join-Path $directory 'user-project'
     cppm init $project
     if ($LASTEXITCODE -ne 0) { throw 'Project creation failed.' }

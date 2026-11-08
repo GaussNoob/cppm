@@ -95,7 +95,9 @@ fn managed_tools() -> Option<&'static PathBuf> {
         .get_or_init(|| {
             let executable = std::env::current_exe().ok()?;
             let receipt = std::fs::read(executable.parent()?.join("cppm.install.json")).ok()?;
-            let receipt: serde_json::Value = serde_json::from_slice(&receipt).ok()?;
+            // Windows PowerShell 5.1 writes a UTF-8 BOM with -Encoding UTF8.
+            let source = receipt.strip_prefix(b"\xef\xbb\xbf").unwrap_or(&receipt);
+            let receipt: serde_json::Value = serde_json::from_slice(source).ok()?;
             let directory = PathBuf::from(receipt.get("toolsDir")?.as_str()?).join("venv/Scripts");
             directory.is_dir().then_some(directory)
         })
