@@ -63,9 +63,10 @@ cargo build --release --locked
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
-O executável Windows x64 passou em 13 testes de unidade/CLI no Wine. Os testes
-de MSVC e PowerShell foram preparados no job Windows do CI; sua execução nativa
-ainda está pendente neste workspace.
+O ZIP Windows usa um executável GNU x64 com validação parcial no Wine. O
+assistente é compilado com MSVC no CI; `windows-installer.yml` testa sua instalação
+e a compilação C++ nativa pelo PowerShell. Os testes adicionais de integração
+com bibliotecas ficam no workflow `ci.yml`.
 
 ## Linux
 

@@ -48,8 +48,8 @@ arquivos, perfil e ambiente permanecem válidos. `cppm build --fresh` força a
 preparação completa; `--verbose` mostra os tempos de cada etapa.
 
 O projeto tem validação local em Linux e um executável Windows x64 com testes
-de CLI no Wine. Os testes nativos com MSVC e PowerShell estão preparados no CI;
-sua execução ainda está pendente neste workspace. `cppm` é o nome provisório.
+de CLI no Wine. O CI Windows dedicado ao instalador verifica downloads,
+instalação, PATH, build C++ com MSVC e desinstalação. `cppm` é o nome provisório.
 
 ## Documentação
 

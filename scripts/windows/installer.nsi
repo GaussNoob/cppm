@@ -41,12 +41,12 @@ ShowUninstDetails show
 
 Function .onInit
   ${IfNot} ${RunningX64}
-    MessageBox MB_ICONSTOP "cppm setup requires 64-bit Windows 10 or later."
+    MessageBox MB_ICONSTOP "cppm setup requires 64-bit Windows 10 or later." /SD IDOK
     SetErrorLevel 1
     Quit
   ${EndIf}
   ${IfNot} ${AtLeastWin10}
-    MessageBox MB_ICONSTOP "cppm setup requires Windows 10 or later."
+    MessageBox MB_ICONSTOP "cppm setup requires Windows 10 or later." /SD IDOK
     SetErrorLevel 1
     Quit
   ${EndIf}
@@ -76,7 +76,7 @@ Section "cppm and C++ build tools" Main
     SetRebootFlag true
     SetErrorLevel 3010
   ${ElseIf} $0 != 0
-    MessageBox MB_ICONSTOP "Installation did not finish.$\r$\nSee $INSTDIR\install.log for details, then rerun setup.$\r$\nNo success was reported."
+    MessageBox MB_ICONSTOP "Installation did not finish.$\r$\nSee $INSTDIR\install.log for details, then rerun setup.$\r$\nNo success was reported." /SD IDOK
     SetErrorLevel 1
     Abort
   ${EndIf}
@@ -99,7 +99,7 @@ Section "Uninstall"
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\installer\uninstall.ps1" -InstallDir "$INSTDIR\bin" -RemoveTools'
   Pop $0
   ${If} $0 != 0
-    MessageBox MB_ICONSTOP "Uninstallation did not finish. Close cppm and its build tools, then try again."
+    MessageBox MB_ICONSTOP "Uninstallation did not finish. Close cppm and its build tools, then try again." /SD IDOK
     SetErrorLevel 1
     Abort
   ${EndIf}

@@ -145,12 +145,13 @@ nem consulta a rede. O JSON pode conter caminhos locais do computador.
 | --- | --- |
 | Linux nativo | CLI, compilador, instalação em lote, rollback, bibliotecas compartilhadas em Debug/Release/CTest e Qt Core. |
 | Windows GNU x64 no Wine | 13 testes de unidade/CLI, criação de projeto, catálogo, concorrência, lockfile, validação de argumentos e diagnóstico com ferramentas ausentes. |
-| Windows nativo com MSVC e PowerShell | Testes implementados em `ci.yml`; execução em um runner Windows ainda pendente neste workspace. |
+| Windows nativo com MSVC e PowerShell | `windows-installer.yml`: instalação real, downloads das ferramentas, reinstalação, PATH novo, build C++, CTest e desinstalação. `ci.yml` contém integrações adicionais com bibliotecas. |
 
-O `.exe` distribuído foi compilado para `x86_64-pc-windows-gnu` e executado no
-Wine. Isso verifica parte do código Windows e não substitui uma execução nativa
-com MSVC, SDK e PowerShell. O CI nativo gera seu próprio binário MSVC, testa o
-instalador e verifica DLLs com uma biblioteca compartilhada real.
+O assistente usa uma CLI MSVC produzida no runner Windows. O ZIP portátil pode
+usar `x86_64-pc-windows-gnu`, compilado em Linux e executado no Wine; o
+`release.json` no pacote identifica o target. A verificação no Wine é parcial.
+O workflow do assistente usa PowerShell e MSVC nativos, e o CI de bibliotecas
+inclui verificações de DLLs com uma biblioteca compartilhada real.
 
 Para repetir a verificação parcial no Linux com MinGW, Rust com o target GNU e
 Wine instalados:
