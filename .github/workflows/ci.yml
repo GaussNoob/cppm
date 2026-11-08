@@ -1,0 +1,96 @@
+name: Build, test and package
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      full_catalog:
+        description: 'Also compile and test the standard libraries, Qt, OpenCV and Protobuf (may take a long time)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CONAN_HOME: ${{ github.workspace }}/.qa/conan
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Update Rust
+        run: rustup update stable --no-self-update
+      - name: Select stable Rust
+        run: rustup default stable
+      - name: Install build tools
+        run: python -m pip install conan==2.34.0 cmake==3.31.6 ninja==1.11.1.4
+      - name: Formatting
+        run: cargo fmt --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: CLI tests
+        run: cargo test --locked
+      - name: Interactive terminal smoke test
+        if: runner.os == 'Linux'
+        run: python scripts/test-ui.py
+      - name: Diagnose and compile a C++ probe
+        run: cargo run --locked -- doctor --json
+      - name: Conan integration tests
+        run: cargo test --locked --test conan -- --ignored --nocapture --test-threads=1
+      - name: Dependency cache invalidation and explicit refresh
+        run: cargo test --locked --test workflow conan_cache -- --ignored --nocapture
+      - name: Shared-library runtime in Debug, Release, obf and CTest
+        run: cargo test --locked --test runtime -- --ignored --nocapture
+      - name: Share one dependency binary across projects and prune safely
+        run: cargo test --locked --test store -- --ignored --nocapture
+      - name: Database client integration tests
+        run: cargo test --locked --test databases -- --ignored --nocapture --test-threads=1
+      - name: Drogon API integration test
+        run: cargo test --locked --test templates drogon_template -- --ignored --nocapture
+      - name: Standard library catalog
+        if: github.event_name == 'workflow_dispatch' && inputs.full_catalog
+        run: cargo test --locked --test libraries standard_ -- --ignored --nocapture --test-threads=1
+      - name: Scientific and serialization catalog
+        if: github.event_name == 'workflow_dispatch' && inputs.full_catalog
+        run: cargo test --locked --test science -- --ignored --nocapture --test-threads=1
+      - name: Release binary
+        run: cargo build --release --locked
+      - name: Windows installer tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-install.ps1
+      - name: Package
+        run: python scripts/package.py
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cppm-${{ runner.os }}-${{ runner.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  webassembly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Install CMake and Ninja
+        run: python -m pip install cmake==3.31.6 ninja==1.11.1.4
+      - name: Install Emscripten
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git .qa/emsdk
+          .qa/emsdk/emsdk install 6.0.13
+          .qa/emsdk/emsdk activate 6.0.13
+      - name: Compile, serve and discover WASM SDK without shell activation
+        shell: bash
+        run: |
+          cargo test --locked --test templates wasm_ -- --ignored --nocapture --test-threads=1

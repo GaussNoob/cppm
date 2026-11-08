@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "dependencies": {
+    "fmt": "11.0.2"
+  },
+  "conan": {
+    "build_requires": [],
+    "config_requires": [],
+    "python_requires": [],
+    "requires": [
+      "fmt/11.0.2#d886d768f1a5c52ebc26c6753621dc3e%1785754564.249"
+    ],
+    "version": "0.5"
+  }
+}

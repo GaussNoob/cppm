@@ -1,0 +1,11 @@
+/target/
+/.venv/
+/.qa/
+/dist/
+/website/
+__pycache__/
+.env
+.env.*
+!.env.example
+!.env.sample
+

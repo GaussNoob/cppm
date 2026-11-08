@@ -1,0 +1,12 @@
+[package]
+name = "hello"
+version = "0.1.0"
+cpp-standard = 20
+
+[dependencies]
+fmt = "11.0.2"
+
+[scripts]
+build = ["cppm", "build", "--release"]
+dev = ["cppm", "exec", "--"]
+test = ["cppm", "test", "--"]
