@@ -12,7 +12,13 @@ try {
     # Force the installer to obtain its own Python, Conan, CMake and Ninja.
     $env:Path = "$env:SystemRoot\System32;$env:SystemRoot;$env:SystemRoot\System32\WindowsPowerShell\v1.0"
     foreach ($attempt in 1..2) {
-        $process = Start-Process -FilePath $SetupPath -ArgumentList "/S /D=$directory" -Wait -PassThru
+        Write-Host "Starting setup attempt $attempt..."
+        # Start-Process -Wait also waits for descendants such as the resident
+        # MSVC PDB server. Wait for setup itself, which already waits for its work.
+        $process = Start-Process -FilePath $SetupPath -ArgumentList "/S /D=$directory" -PassThru
+        if (-not $process.WaitForExit(600000)) { throw 'Setup did not exit within 10 minutes.' }
+        $process.Refresh()
+        Write-Host "Setup attempt $attempt exited with $($process.ExitCode)."
         if ($process.ExitCode -ne 0) {
             if (Test-Path (Join-Path $directory 'install.log')) { Get-Content (Join-Path $directory 'install.log') | Write-Host }
             throw "Setup failed (exit $($process.ExitCode))."
@@ -44,7 +50,9 @@ try {
     Set-Content -LiteralPath (Join-Path $directory 'keep.txt') -Value 'user file'
     # _?= keeps NSIS in this process so Start-Process waits for all cleanup.
     $uninstaller = Join-Path $directory 'uninstall.exe'
-    $process = Start-Process -FilePath $uninstaller -ArgumentList "/S _?=$directory" -Wait -PassThru
+    $process = Start-Process -FilePath $uninstaller -ArgumentList "/S _?=$directory" -PassThru
+    if (-not $process.WaitForExit(120000)) { throw 'Uninstaller did not exit within 2 minutes.' }
+    $process.Refresh()
     if ($process.ExitCode -ne 0) { throw 'Setup uninstaller failed.' }
     if (Test-Path $registration) { throw 'Uninstaller kept Installed apps registration.' }
     if (Test-Path -LiteralPath (Join-Path $directory 'bin\cppm.exe')) { throw 'Uninstaller kept cppm.' }
