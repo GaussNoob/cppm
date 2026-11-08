@@ -67,6 +67,10 @@ try {
     }
     cppm -C $project run test
     if ($LASTEXITCODE -ne 0) { throw 'Native C++ tests failed.' }
+    cppm -C $project add fmt
+    if ($LASTEXITCODE -ne 0) { throw 'Conan dependency installation failed in the fresh-terminal environment.' }
+    cppm -C $project run dev
+    if ($LASTEXITCODE -ne 0) { throw 'C++ build with an installed Conan dependency failed.' }
     Set-Content -LiteralPath (Join-Path $directory 'keep.txt') -Value 'user file'
     # _?= keeps NSIS in this process so Start-Process waits for all cleanup.
     $uninstaller = Join-Path $directory 'uninstall.exe'

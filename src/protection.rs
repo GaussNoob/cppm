@@ -127,11 +127,9 @@ impl Configuration {
     }
 
     pub fn verify(&self) -> Result<()> {
+        let marker = fs::read(self.directory.join("cppm-protection.applied")).unwrap_or_default();
         ensure!(
-            fs::read(self.directory.join("cppm-protection.applied"))
-                .ok()
-                .as_deref()
-                == Some(b"applied\n"),
+            marker == b"applied\n" || marker == b"applied\r\n",
             "CMake did not apply the obf preset; check whether the project overrides CMAKE_PROJECT_INCLUDE"
         );
         Ok(())
