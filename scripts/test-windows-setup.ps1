@@ -5,10 +5,13 @@ $ErrorActionPreference = 'Stop'
 $SetupPath = (Resolve-Path -LiteralPath $SetupPath).Path
 $originalUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $originalProcessPath = $env:Path
+$originalProcessPolicy = $env:PSExecutionPolicyPreference
 $registration = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\cppm'
 if (Test-Path $registration) { throw 'Run this integration test on a disposable Windows runner without an installed cppm.' }
 $directory = Join-Path ([IO.Path]::GetTempPath()) ('cppm setup test (spaces & symbols) ' + [Guid]::NewGuid().ToString('N'))
 try {
+    # Do not require the user to relax the PowerShell policy globally.
+    $env:PSExecutionPolicyPreference = 'Restricted'
     # Force the installer to obtain its own Python, Conan, CMake and Ninja.
     $env:Path = "$env:SystemRoot\System32;$env:SystemRoot;$env:SystemRoot\System32\WindowsPowerShell\v1.0"
     foreach ($attempt in 1..2) {
@@ -90,6 +93,7 @@ try {
 finally {
     [Environment]::SetEnvironmentVariable('Path', $originalUserPath, 'User')
     $env:Path = $originalProcessPath
+    $env:PSExecutionPolicyPreference = $originalProcessPolicy
     if (Test-Path $registration) { Remove-Item $registration -Recurse }
     if (Test-Path 'HKCU:\Software\cppm') { Remove-Item 'HKCU:\Software\cppm' -Recurse }
     if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }

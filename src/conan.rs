@@ -100,7 +100,7 @@ fn configure_profiles(
     #[cfg(windows)]
     command
         .arg("--conf:all")
-        .arg("tools.env.virtualenv:powershell=powershell.exe");
+        .arg("tools.env.virtualenv:powershell=powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass");
     if !options.verbose {
         command.arg("-vwarning");
     }
