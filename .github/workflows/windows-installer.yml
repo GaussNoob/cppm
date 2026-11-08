@@ -1,0 +1,44 @@
+name: Windows setup installer
+
+on:
+  push:
+    paths:
+      - 'scripts/**'
+      - 'src/**'
+      - 'Cargo.*'
+      - 'docs/**'
+      - '.github/workflows/windows-installer.yml'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select stable Rust
+        run: rustup update stable --no-self-update
+      - name: Build Windows CLI
+        run: cargo +stable build --release --locked
+      - name: Test setup failure handling and PATH ownership in Windows PowerShell
+        shell: powershell
+        run: ./scripts/test-windows-tools.ps1
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+      - name: Package setup
+        run: python scripts/package-windows-installer.py --makensis 'C:\Program Files (x86)\NSIS\makensis.exe'
+      - name: Test setup, reinstall, fresh terminal, native build and uninstall
+        shell: powershell
+        run: |
+          $setup = Get-ChildItem dist/*-setup.exe | Select-Object -First 1
+          ./scripts/test-windows-setup.ps1 -SetupPath $setup.FullName
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cppm-windows-setup
+          path: dist/*-setup.exe*
+          if-no-files-found: error

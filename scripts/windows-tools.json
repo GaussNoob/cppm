@@ -1,0 +1,8 @@
+{
+  "uvVersion": "0.13.7",
+  "uvUrl": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-pc-windows-msvc.zip",
+  "uvSha256": "0cdc5b38fe5a8168ed6a25814f5ba43c21d313dd3187314fccb37b7cec46e021",
+  "python": "3.13",
+  "packages": ["conan==2.34.0", "cmake==3.31.6", "ninja==1.11.1.4"],
+  "buildToolsUrl": "https://aka.ms/vs/17/release/vs_BuildTools.exe"
+}

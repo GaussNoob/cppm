@@ -1,14 +1,33 @@
 # Instalação do cppm
 
-Os pacotes contêm o binário da CLI e um instalador local. Não exigem Rust no
-computador que vai usar a ferramenta. CMake, Ninja, Conan 2 e um compilador C++
-são requisitos separados.
+Baixe a [última release](https://github.com/GaussNoob/cppm/releases/latest).
+Os pacotes não exigem Rust no computador que vai usar a ferramenta.
 
 ## Windows x64
 
-O pacote `cppm-0.4.0-windows-x86_64.zip` já contém o executável. Consulte o
-[guia Windows](windows.md) para preparar ferramentas, conferir o checksum,
-diagnosticar o ambiente e entender a cobertura dos testes.
+O caminho recomendado é abrir `cppm-0.4.1-windows-x86_64-setup.exe` e seguir o
+assistente. Ele instala o cppm, baixa Python 3.13, Conan 2, CMake e Ninja em um
+ambiente próprio e instala MSVC + Windows SDK se faltarem. Configura o PATH do
+usuário e valida a compilação C++ antes de concluir. Depois, abra um terminal novo:
+
+```powershell
+cppm doctor
+cppm init meu-app
+cd meu-app
+cppm run dev
+```
+
+A instalação exige Internet. O compilador e o Windows SDK podem baixar vários
+GB e pedir autorização de administrador. Se a Microsoft indicar que é preciso
+reiniciar, o assistente solicita a reinicialização antes do primeiro build.
+Python e as ferramentas ficam em `%LOCALAPPDATA%\Programs\cppm\tools`, sem
+depender de uma instalação anterior de Python ou de winget/Chocolatey. O log
+fica em `%LOCALAPPDATA%\Programs\cppm\install.log`. O cppm aparece em
+**Configurações → Aplicativos instalados**; a desinstalação remove suas ferramentas
+privadas e preserva projetos, cache de pacotes Conan e o compilador compartilhado.
+
+Consulte o [guia Windows](windows.md) para checksums e detalhes. O pacote
+`cppm-0.4.1-windows-x86_64.zip` continua disponível para instalar somente a CLI:
 
 Extraia o pacote Windows e execute no PowerShell, dentro da pasta extraída:
 
@@ -64,7 +83,7 @@ shell. Se a pasta ainda não estiver no PATH, adicione-a permanentemente; no fis
 fish_add_path ~/.local/bin
 ```
 
-Instale CMake 3.24+, Ninja e GCC ou Clang pelo gerenciador da distribuição.
+No Linux, instale CMake 3.24+, Ninja e GCC ou Clang pelo gerenciador da distribuição.
 Para Conan, use `uv tool install 'conan>=2.34,<3'` ou pipx. No repositório, o
 instalador também encontra `target/release/cppm` depois de `cargo build --release`.
 
@@ -84,6 +103,20 @@ o mesmo `--target`. Cada pacote contém um `release.json` com o target utilizado
 O workflow `ci.yml` compila, testa e empacota em runners Linux e Windows.
 Os artefatos ficam no próprio workflow. Não há publicação automática de releases,
 instalador remoto ou pacote winget/Scoop ainda.
+
+Para gerar o assistente Windows, instale NSIS 3 e execute:
+
+```sh
+python scripts/package-windows-installer.py
+```
+
+Em Linux, informe `--binary target/x86_64-pc-windows-gnu/release/cppm.exe`
+após o build cruzado. `--makensis` seleciona o compilador NSIS. O workflow
+`windows-installer.yml` gera o `.exe` e testa instalação, reinstalação, PATH em
+terminal novo, build C++ real e desinstalação em um runner Windows. Os downloads
+do uv são fixados por versão e SHA-256; o bootstrapper MSVC só é executado com
+assinatura Authenticode válida da Microsoft. Veja as versões de ferramentas
+em `scripts/windows-tools.json`.
 
 ## Pacotes C++
 

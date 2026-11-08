@@ -62,9 +62,14 @@ sua execução ainda está pendente neste workspace. `cppm` é o nome provisóri
 
 ## Instalação
 
-Há instaladores por usuário para Linux e Windows. No Windows, o instalador
-registra o PATH permanentemente e não exige administrador. As instruções de
-instalação e geração de pacotes estão em [docs/installation.md](docs/installation.md).
+Baixe os pacotes na [última release](https://github.com/GaussNoob/cppm/releases/latest).
+No Windows, execute `cppm-0.4.1-windows-x86_64-setup.exe`: o assistente instala a
+CLI, Python, Conan, CMake e Ninja, prepara MSVC e Windows SDK se faltarem e
+configura o PATH. Depois, abra um terminal novo e use `cppm`. A etapa do
+compilador pode pedir administrador e baixar vários GB.
+
+Também há pacotes portáteis Windows e instalador por usuário no Linux. As
+instruções estão em [docs/installation.md](docs/installation.md).
 
 Requisitos: Rust 1.89 ou superior para compilar a CLI, CMake 3.24 ou superior,
 Ninja e um compilador C++. Conan 2 é necessário quando o projeto tem

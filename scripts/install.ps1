@@ -2,10 +2,14 @@
 param(
     [string]$BinaryPath,
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\cppm\bin'),
-    [switch]$NoPath
+    [switch]$NoPath,
+    [switch]$WithDependencies,
+    [string]$ToolsDir
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'windows-tools.ps1')
+if ($WithDependencies -and $NoPath) { throw 'A complete installation needs PATH configuration; omit -NoPath.' }
 if (-not $BinaryPath) {
     $BinaryPath = Join-Path $PSScriptRoot 'cppm.exe'
     if (-not (Test-Path -LiteralPath $BinaryPath -PathType Leaf)) {
@@ -24,10 +28,23 @@ $InstallDir = [IO.Path]::GetFullPath($InstallDir)
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 $destination = Join-Path $InstallDir 'cppm.exe'
 $receiptPath = Join-Path $InstallDir 'cppm.install.json'
-$pathAdded = $false
+$ownedEntries = @()
+$managedToolsDir = $null
 if (Test-Path -LiteralPath $receiptPath -PathType Leaf) {
     $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-    $pathAdded = $receipt.pathAdded -eq $true
+    $ownedEntries = @($receipt.pathEntries | Where-Object { $_ })
+    if ($receipt.pathAdded -eq $true -and $ownedEntries -notcontains $InstallDir) { $ownedEntries += $InstallDir }
+    $managedToolsDir = $receipt.toolsDir
+}
+$directories = @($InstallDir)
+$rebootRequired = $false
+if ($WithDependencies) {
+    if (-not $ToolsDir) { $ToolsDir = Join-Path $InstallDir 'tools' }
+    $ToolsDir = [IO.Path]::GetFullPath($ToolsDir)
+    $tools = Install-CppmTools $ToolsDir
+    $managedToolsDir = $ToolsDir
+    $directories += $tools.Scripts
+    $rebootRequired = $tools.RebootRequired
 }
 if ($BinaryPath -ne $destination) {
     $temporary = Join-Path $InstallDir ('cppm-' + [Guid]::NewGuid().ToString('N') + '.tmp')
@@ -41,18 +58,37 @@ if ($BinaryPath -ne $destination) {
 }
 if (-not $NoPath) {
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $entries = @($userPath -split ';' | Where-Object { $_ })
-    $present = @($entries | Where-Object {
-        [Environment]::ExpandEnvironmentVariables($_).TrimEnd('\') -ieq $InstallDir.TrimEnd('\')
-    }).Count -gt 0
-    if (-not $present) {
-        [Environment]::SetEnvironmentVariable('Path', (($entries + $InstallDir) -join ';'), 'User')
-        $pathAdded = $true
+    $updated = Add-CppmPathEntries $userPath $directories
+    foreach ($entry in $updated.Added) {
+        if ($ownedEntries -notcontains $entry) { $ownedEntries += $entry }
     }
-    if (-not (@($env:Path -split ';') -contains $InstallDir)) {
-        $env:Path = $InstallDir + ';' + $env:Path
+    # Put the selected tools first for the probe; keep persistent user PATH entries
+    # in their original order and record ownership only for entries we added.
+    $env:Path = (($directories + @($env:Path)) -join ';')
+    if ($WithDependencies -and -not $rebootRequired) {
+        Write-Host 'Checking the complete C++ environment...'
+        $report = & $destination doctor --json
+        if ($LASTEXITCODE -ne 0) { throw "C++ environment validation failed:`n$($report -join "`n")" }
+        $diagnostics = $report -join "`n" | ConvertFrom-Json
+        if (-not $diagnostics.ok) { throw 'cppm doctor reported an incomplete environment.' }
     }
+    [Environment]::SetEnvironmentVariable('Path', $updated.Value, 'User')
 }
-@{ format = 1; pathAdded = $pathAdded } | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding UTF8
+@{
+    format = 2
+    pathAdded = $ownedEntries -contains $InstallDir
+    pathEntries = @($ownedEntries)
+    toolsDir = $managedToolsDir
+    rebootRequired = $rebootRequired
+} | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding UTF8
+if (-not $NoPath) { Send-CppmEnvironmentChange }
 Write-Host "Installed $version in $InstallDir"
-Write-Host 'Open a new terminal and run cppm doctor. CMake, Ninja, Conan 2 and a C++ toolchain are installed separately.'
+if ($rebootRequired) {
+    Write-Host 'Microsoft Build Tools requires a restart. Restart Windows, then open a new terminal and run cppm doctor.'
+}
+elseif ($WithDependencies) {
+    Write-Host 'Ready. Open a new terminal and run cppm init my-app, then cd my-app and cppm run dev.'
+}
+else {
+    Write-Host 'Open a new terminal and run cppm doctor. Use the setup .exe or -WithDependencies to install the build tools automatically.'
+}

@@ -1,8 +1,37 @@
 # cppm no Windows
 
-## Instalar a CLI
+## Instalação completa
 
-O pacote `cppm-0.4.0-windows-x86_64.zip` contém `cppm.exe`, os instaladores,
+Na [última release](https://github.com/GaussNoob/cppm/releases/latest), baixe
+`cppm-0.4.1-windows-x86_64-setup.exe` e abra o assistente. Ele prepara a CLI,
+Python, Conan, CMake, Ninja, MSVC e Windows SDK e registra o PATH do usuário.
+Depois, basta abrir um terminal novo e executar `cppm doctor` ou criar um projeto.
+
+O compilador existente é reutilizado quando MSVC e Windows SDK estão disponíveis.
+Se faltarem, a instalação da Microsoft pede administrador e pode baixar vários
+GB. Se precisar reiniciar, o assistente informa isso antes do primeiro uso.
+O download exige Internet; cancelar ou perder a conexão não é tratado como sucesso.
+Use o mesmo instalador para tentar novamente. Os detalhes ficam em
+`%LOCALAPPDATA%\Programs\cppm\install.log` (ou na pasta escolhida no assistente).
+
+Python e ferramentas de build ficam no diretório `tools` da instalação, em um
+ambiente próprio gerenciado por [uv](https://docs.astral.sh/uv/guides/install-python/).
+Não é preciso instalar Python, Rust, winget ou Chocolatey antes. O MSVC é instalado
+pelo [bootstrapper oficial da Microsoft](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio).
+Projetos que exigem SDKs extras (como Qt, GPU ou WebAssembly) ainda têm seus
+requisitos próprios; o instalador prepara o ambiente C++ nativo.
+
+Para remover, use **Configurações → Aplicativos instalados → cppm**. As ferramentas
+privadas são removidas; projetos, cache Conan e o Visual Studio compartilhado são
+preservados. Entradas de PATH preexistentes também são preservadas.
+
+Instalação silenciosa: `cppm-0.4.1-windows-x86_64-setup.exe /S`.
+Ela ainda pode pedir UAC para instalar MSVC; código 3010 indica reinicialização
+necessária, sem reiniciar automaticamente.
+
+## Pacote portátil: somente a CLI
+
+O pacote `cppm-0.4.1-windows-x86_64.zip` contém `cppm.exe`, os instaladores,
 licença e os guias. Ele é destinado a Windows 10/11 x64 e não exige Rust ou
 MinGW no computador do usuário. O compilador usado para gerar a CLI é
 independente do compilador dos seus projetos C++.
@@ -10,10 +39,10 @@ independente do compilador dos seus projetos C++.
 Baixe também o arquivo `.sha256` se quiser conferir o download:
 
 ```powershell
-Get-FileHash .\cppm-0.4.0-windows-x86_64.zip -Algorithm SHA256
-Get-Content .\cppm-0.4.0-windows-x86_64.zip.sha256
-Expand-Archive .\cppm-0.4.0-windows-x86_64.zip -DestinationPath .\cppm-extraido
-cd .\cppm-extraido\cppm-0.4.0-windows-x86_64
+Get-FileHash .\cppm-0.4.1-windows-x86_64.zip -Algorithm SHA256
+Get-Content .\cppm-0.4.1-windows-x86_64.zip.sha256
+Expand-Archive .\cppm-0.4.1-windows-x86_64.zip -DestinationPath .\cppm-extraido
+cd .\cppm-extraido\cppm-0.4.1-windows-x86_64
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
@@ -21,8 +50,10 @@ O instalador usa `%LOCALAPPDATA%\Programs\cppm\bin`, altera apenas o PATH do
 usuário e não exige administrador. Abra um terminal novo e execute `cppm --version`.
 Use `-InstallDir` para escolher outra pasta ou `-NoPath` para manter o PATH atual.
 O desinstalador preserva entradas de PATH que já existiam e arquivos de terceiros.
+Se preferir preparar as dependências a partir do ZIP, execute o mesmo script com
+`-WithDependencies`; use `uninstall.ps1 -RemoveTools` para remover o ambiente privado.
 
-## Preparar a compilação C++
+## Preparar manualmente a compilação C++
 
 Instale Visual Studio Build Tools com **Desktop development with C++**, incluindo
 MSVC e Windows SDK. O cppm usa `vswhere` e `VsDevCmd.bat` para preparar os

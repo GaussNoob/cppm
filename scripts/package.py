@@ -46,7 +46,9 @@ def main():
         'LICENSE': root / 'LICENSE',
         'THIRD_PARTY_NOTICES.txt': root / 'THIRD_PARTY_NOTICES.txt',
     }
-    installers = ['install.ps1', 'uninstall.ps1'] if system == 'windows' else ['install.sh']
+    installers = [
+        'install.ps1', 'uninstall.ps1', 'windows-tools.ps1', 'windows-tools.json',
+    ] if system == 'windows' else ['install.sh']
     files.update({name: root / 'scripts' / name for name in installers})
     for source in files.values():
         if not source.is_file():
