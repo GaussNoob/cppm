@@ -95,6 +95,12 @@ fn configure_profiles(
         "qt/*:compiler.cppstd=gnu{}",
         project.manifest.package.cpp_standard
     ));
+    // Conan's batch activation can interpret '&' in an inherited Windows PATH.
+    // Its PowerShell launchers keep those tool directories as literal values.
+    #[cfg(windows)]
+    command
+        .arg("--conf:all")
+        .arg("tools.env.virtualenv:powershell=powershell.exe");
     if !options.verbose {
         command.arg("-vwarning");
     }
