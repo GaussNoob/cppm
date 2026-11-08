@@ -9,6 +9,7 @@ function Get-CppmPathEntries([string]$Value) {
 
 function Add-CppmPathEntries([string]$Value, [string[]]$Directories) {
     $entries = @(Get-CppmPathEntries $Value)
+    $originalEntries = @($entries)
     $added = @()
     foreach ($directory in $Directories) {
         $key = Get-CppmPathKey $directory
@@ -17,7 +18,9 @@ function Add-CppmPathEntries([string]$Value, [string[]]$Directories) {
             $added += $directory
         }
     }
-    @{ Value = $entries -join ';'; Added = $added }
+    # New entries precede WindowsApps, whose Python execution alias can open the
+    # Microsoft Store instead of the private interpreter. Existing order stays intact.
+    @{ Value = ($added + $originalEntries) -join ';'; Added = $added }
 }
 
 function Remove-CppmPathEntries([string]$Value, [string[]]$Directories) {

@@ -62,9 +62,12 @@ if (-not $NoPath) {
     foreach ($entry in $updated.Added) {
         if ($ownedEntries -notcontains $entry) { $ownedEntries += $entry }
     }
-    # Put the selected tools first for the probe; keep persistent user PATH entries
-    # in their original order and record ownership only for entries we added.
-    $env:Path = (($directories + @($env:Path)) -join ';')
+    # Probe the same PATH a fresh terminal will receive, including machine entries.
+    # This catches conflicts with older system-wide tools before reporting success.
+    if ($WithDependencies) {
+        $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + $updated.Value
+    }
+    else { $env:Path = (Add-CppmPathEntries $env:Path @($InstallDir)).Value }
     if ($WithDependencies -and -not $rebootRequired) {
         Write-Host 'Checking the complete C++ environment...'
         $report = & $destination doctor --json

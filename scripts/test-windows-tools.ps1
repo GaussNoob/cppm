@@ -12,7 +12,7 @@ function Assert-Throws([scriptblock]$Action, [string]$Pattern) {
 
 $result = Add-CppmPathEntries 'C:\Windows;c:\Cppm\Bin\;C:\User Tools' @('C:\cppm\bin', 'C:\cppm\tools\venv\Scripts')
 Assert-True ($result.Added.Count -eq 1) 'Existing PATH entries must not be claimed by cppm.'
-Assert-True ($result.Value -eq 'C:\Windows;c:\Cppm\Bin\;C:\User Tools;C:\cppm\tools\venv\Scripts') 'PATH order changed.'
+Assert-True ($result.Value -eq 'C:\cppm\tools\venv\Scripts;C:\Windows;c:\Cppm\Bin\;C:\User Tools') 'New tools must precede Python Store aliases while keeping the existing order.'
 $removed = Remove-CppmPathEntries $result.Value $result.Added
 Assert-True ($removed -eq 'C:\Windows;c:\Cppm\Bin\;C:\User Tools') 'Removing owned entries must preserve the original PATH.'
 $again = Add-CppmPathEntries $result.Value @('C:\cppm\bin', 'C:\cppm\tools\venv\Scripts')
