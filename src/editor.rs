@@ -56,11 +56,25 @@ pub fn unpublish(root: &Path, removed: &Path) -> Result<()> {
     let Ok(database) = serde_json::from_slice::<Value>(&previous) else {
         return Ok(());
     };
+    #[cfg(windows)]
+    let removed_path = windows_comparison_path(
+        &root.canonicalize()?.join(
+            removed
+                .strip_prefix(root)
+                .context("build directory is outside the project")?,
+        ),
+    );
+    #[cfg(windows)]
+    let removed = removed_path.as_path();
     let affected = database.as_array().is_some_and(|entries| {
         entries.iter().any(|entry| {
-            entry["directory"]
-                .as_str()
-                .is_some_and(|directory| Path::new(directory).starts_with(removed))
+            entry["directory"].as_str().is_some_and(|directory| {
+                #[cfg(windows)]
+                let directory = windows_comparison_path(Path::new(directory));
+                #[cfg(not(windows))]
+                let directory = Path::new(directory);
+                directory.starts_with(removed)
+            })
         })
     });
     if !affected {
@@ -74,6 +88,19 @@ pub fn unpublish(root: &Path, removed: &Path) -> Result<()> {
     }
     fs::remove_file(snapshot)?;
     Ok(())
+}
+
+#[cfg(windows)]
+fn windows_comparison_path(path: &Path) -> std::path::PathBuf {
+    let path = path.to_string_lossy().replace('\\', "/");
+    let path = if let Some(network) = path.strip_prefix("//?/UNC/") {
+        format!("//{network}")
+    } else {
+        path.strip_prefix("//?/").unwrap_or(&path).to_owned()
+    };
+    // CMake uses normal Windows paths, while Rust canonicalization can return
+    // extended-length paths. Windows comparisons also ignore case.
+    path.to_lowercase().into()
 }
 
 pub fn vscode_tasks(project_path: &str, target: Target) -> Value {
