@@ -28,7 +28,7 @@ ShowUninstDetails show
 !define MUI_WELCOMEPAGE_TITLE "Welcome to cppm ${VERSION}"
 !define MUI_WELCOMEPAGE_TEXT "This wizard installs cppm and prepares Python, Conan, CMake, Ninja, MSVC and the Windows SDK.$\r$\n$\r$\nAn Internet connection is required. If the C++ compiler is missing, Microsoft Build Tools will request administrator approval and download several GB.$\r$\n$\r$\nSetup configures your user PATH. After installation, open a new terminal and start using cppm."
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "${PROJECT_ROOT}/LICENSE"
+!insertmacro MUI_PAGE_LICENSE "${PROJECT_ROOT}\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_FINISHPAGE_TITLE "cppm is installed"
@@ -59,16 +59,16 @@ Section "cppm and C++ build tools" Main
   SetOutPath "$PLUGINSDIR"
   File /oname=cppm.exe "${BINARY_PATH}"
   SetOutPath "$INSTDIR\installer"
-  File "${PROJECT_ROOT}/scripts/install.ps1"
-  File "${PROJECT_ROOT}/scripts/uninstall.ps1"
-  File "${PROJECT_ROOT}/scripts/windows-tools.ps1"
-  File "${PROJECT_ROOT}/scripts/windows-tools.json"
-  File "${PROJECT_ROOT}/scripts/setup-windows.ps1"
+  File "${PROJECT_ROOT}\scripts\install.ps1"
+  File "${PROJECT_ROOT}\scripts\uninstall.ps1"
+  File "${PROJECT_ROOT}\scripts\windows-tools.ps1"
+  File "${PROJECT_ROOT}\scripts\windows-tools.json"
+  File "${PROJECT_ROOT}\scripts\setup-windows.ps1"
   SetOutPath "$INSTDIR\docs"
-  File "${PROJECT_ROOT}/LICENSE"
-  File "${PROJECT_ROOT}/THIRD_PARTY_NOTICES.txt"
-  File "${PROJECT_ROOT}/docs/installation.md"
-  File "${PROJECT_ROOT}/docs/windows.md"
+  File "${PROJECT_ROOT}\LICENSE"
+  File "${PROJECT_ROOT}\THIRD_PARTY_NOTICES.txt"
+  File "${PROJECT_ROOT}\docs\installation.md"
+  File "${PROJECT_ROOT}\docs\windows.md"
   DetailPrint "Installing cppm and preparing its dependencies. This can take a while..."
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\installer\setup-windows.ps1" -BinaryPath "$PLUGINSDIR\cppm.exe" -InstallRoot "$INSTDIR"'
   Pop $0
