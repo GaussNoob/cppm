@@ -164,8 +164,8 @@ nem consulta a rede. O JSON pode conter caminhos locais do computador.
 | Ambiente | Cobertura |
 | --- | --- |
 | Linux nativo | CLI, compilador, instalação em lote, rollback, bibliotecas compartilhadas em Debug/Release/CTest e Qt Core. |
-| Windows GNU x64 no Wine | 13 testes de unidade/CLI, criação de projeto, catálogo, concorrência, lockfile, validação de argumentos e diagnóstico com ferramentas ausentes. |
-| Windows nativo com MSVC e PowerShell | `windows-installer.yml`: instalação real, downloads das ferramentas, reinstalação, PATH novo, build C++, CTest e desinstalação. `ci.yml` contém integrações adicionais com bibliotecas. |
+| Windows GNU x64 no Wine | Testes de unidade/CLI, criação de projeto, catálogo, concorrência, lockfile, validação de argumentos e diagnóstico com ferramentas ausentes; os testes que precisam de ferramentas Windows ficam no CI nativo. |
+| Windows nativo com MSVC e PowerShell | `windows-installer.yml`: instalação real, downloads das ferramentas e SDK, reinstalação, PATH novo, C++, CTest, SDL2, SDL3, WASM em Node/HTTP e desinstalação. `ci.yml` contém integrações adicionais com bibliotecas. |
 
 O assistente usa uma CLI MSVC produzida no runner Windows. O ZIP portátil pode
 usar `x86_64-pc-windows-gnu`, compilado em Linux e executado no Wine; o

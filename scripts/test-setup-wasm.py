@@ -79,7 +79,7 @@ class SetupTests(unittest.TestCase):
             original = {'EMSDK': 'user-sdk', 'EM_CONFIG': 'user-config', 'EM_CACHE': 'user-cache', 'EMSDK_NODE': 'user-node'}
             with patch.dict(os.environ, original):
                 with patch.object(sdk, 'prepare_source', return_value={'format': 1, 'managedBy': 'cppm'}):
-                    with patch.object(sdk.subprocess, 'run') as run, patch.object(sdk, 'verify_sdk'):
+                    with patch.object(sdk.subprocess, 'run') as run, patch.object(sdk, 'verify_sdk'), patch.object(sdk, 'configure_windows_tools'):
                         sdk.install(directory)
                     self.assertEqual(run.call_count, 2)
                     for call in run.call_args_list:
@@ -91,6 +91,23 @@ class SetupTests(unittest.TestCase):
                         self.assertEqual(call.kwargs['env']['EM_CONFIG'], str(directory.resolve() / '.emscripten'))
                     for name, value in original.items():
                         self.assertEqual(os.environ[name], value)
+
+    def test_windows_minifier_uses_node_with_literal_sdk_paths_and_survives_reinstall(self):
+        with tempfile.TemporaryDirectory(prefix='sdk spaces & symbols ') as temporary:
+            directory = Path(temporary)
+            shared = directory / 'upstream/emscripten/tools/shared.py'
+            shared.parent.mkdir(parents=True)
+            shared.write_text("def get_npm_cmd(name, missing_ok=False):\n  return ['original.cmd']\n", encoding='utf-8')
+            sdk.configure_windows_tools(directory)
+            source = shared.read_text(encoding='utf-8')
+            sdk.configure_windows_tools(directory)
+            self.assertEqual(shared.read_text(encoding='utf-8'), source)
+            node = 'C:/private node/node.exe'
+            from types import SimpleNamespace
+            context = {'utils': SimpleNamespace(WINDOWS=True), 'config': SimpleNamespace(NODE_JS=[node]), 'path_from_root': lambda path: str(directory / path)}
+            exec(compile(source, str(shared), 'exec'), context)
+            self.assertEqual(context['get_npm_cmd']('html-minifier-terser'), [node, str(directory / 'node_modules/html-minifier-terser/cli.js')])
+            self.assertEqual(context['get_npm_cmd']('another-tool'), ['original.cmd'])
 
 
 if __name__ == '__main__':

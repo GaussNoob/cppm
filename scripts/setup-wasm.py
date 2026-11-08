@@ -105,6 +105,24 @@ def sdk_environment(directory):
     return environment
 
 
+def configure_windows_tools(directory):
+    # Emscripten's npm .cmd launcher is interpreted by cmd.exe, which splits
+    # paths containing '&'. Invoke the same JavaScript entrypoint with Node.
+    # Only our pinned, privately owned SDK is modified; keep HTML minification.
+    shared = directory / 'upstream/emscripten/tools/shared.py'
+    original = 'def get_npm_cmd(name, missing_ok=False):\n'
+    replacement = original + (
+        "  if utils.WINDOWS and name == 'html-minifier-terser':\n"
+        "    return [*config.NODE_JS, path_from_root('node_modules/html-minifier-terser/cli.js')]\n"
+    )
+    source = shared.read_text(encoding='utf-8')
+    if replacement in source:
+        return
+    if source.count(original) != 1:
+        raise RuntimeError('Unexpected Emscripten npm launcher; refusing to apply the Windows path fix.')
+    shared.write_text(source.replace(original, replacement, 1), encoding='utf-8')
+
+
 def verify_sdk(directory, environment):
     compiler = directory / 'upstream/emscripten/em++.py'
     subprocess.run([sys.executable, str(compiler), '--version'], cwd=directory, env=environment, check=True)
@@ -143,6 +161,8 @@ def install(directory):
     driver = directory / 'emsdk.py'
     for action in ('install', 'activate'):
         subprocess.run([sys.executable, str(driver), action, SDK_VERSION], cwd=directory, env=environment, check=True)
+    if os.name == 'nt':
+        configure_windows_tools(directory)
     verify_sdk(directory, environment)
     metadata['sdkVersion'] = SDK_VERSION
     write_marker(directory, metadata)

@@ -35,6 +35,9 @@ def main():
         'native_project_builds_runs_tests_and_preserves_exit_status',
         'portable_scripts_preserve_arguments_and_inherit_options',
         'powershell_scripts_preserve_data_and_exit_status',
+        'configure_publishes_editor_flags_without_compiling_or_overwriting_custom_files',
+        'configuration_output_hides_status_but_keeps_warnings_errors_and_verbose_details',
+        'vscode_tasks_build_and_run_the_project_from_a_parent_workspace_with_spaces',
     ]
     for binary in binaries:
         command = [args.wine, binary, '--test-threads=1']
