@@ -57,10 +57,13 @@ fn curl_alias_links_without_an_http_request() {
 #[test]
 #[ignore = "requires Conan, network access and the native library's system prerequisites"]
 fn sdl_links_without_initializing_video() {
-    check(
-        "sdl3",
-        "#include <SDL3/SDL.h>\nint main() { return SDL_GetVersion() >= 3000000 ? 0 : 1; }\n",
-    );
+    check("sdl3", include_str!("../examples/sdl3/main.cpp"));
+}
+
+#[test]
+#[ignore = "requires Conan, network access and the native library's system prerequisites"]
+fn sdl2_links_with_the_legacy_header() {
+    check("sdl2", include_str!("../examples/sdl2/main.cpp"));
 }
 
 #[test]

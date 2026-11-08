@@ -51,7 +51,7 @@ pub fn add(
         project.manifest.package.target.is_native(),
         "Conan dependencies for WebAssembly are not supported yet; native libraries cannot be linked into a WASM build"
     );
-    let names = requested.keys().cloned().collect();
+    let names: Vec<String> = requested.keys().cloned().collect();
     for (name, version) in requested {
         let version = match version {
             Some(version) => version,
@@ -64,6 +64,20 @@ pub fn add(
     project.save_manifest()?;
     prepared.commit(&project.root, false)?;
     build::refresh_editor(&project, release, options);
+    if names.iter().any(|name| name == "sdl")
+        && let Some(sdl) = project.manifest.dependencies.get("sdl")
+    {
+        let version = sdl.version();
+        if version.starts_with("2.") {
+            println!(
+                "SDL {version} ready: use #include <SDL.h> (SDL2). SDL3 examples require `cppm add sdl3` and <SDL3/SDL.h>."
+            );
+        } else if version.starts_with("3.") {
+            println!(
+                "SDL {version} ready: use #include <SDL3/SDL.h> (SDL3). For SDL2 code using <SDL.h>, run `cppm add sdl2`."
+            );
+        }
+    }
     Ok(names)
 }
 

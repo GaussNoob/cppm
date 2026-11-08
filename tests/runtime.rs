@@ -68,10 +68,14 @@ class RuntimeFixture(ConanFile):
     fs::write(fixture.join("CMakeLists.txt"), "cmake_minimum_required(VERSION 3.24)\nproject(fixture LANGUAGES CXX)\nadd_library(cppm_fixture SHARED value.cpp)\ninstall(TARGETS cppm_fixture RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)\ninstall(FILES value.h DESTINATION include)\n").unwrap();
     fs::write(
         fixture.join("value.h"),
-        "#pragma once\nint cppm_fixture_value();\n",
+        "#pragma once\n#ifdef _WIN32\n#ifdef cppm_fixture_EXPORTS\n__declspec(dllexport)\n#else\n__declspec(dllimport)\n#endif\n#endif\nint cppm_fixture_value();\n",
     )
     .unwrap();
-    fs::write(fixture.join("value.cpp"), "#include \"value.h\"\n#ifdef _WIN32\n__declspec(dllexport)\n#endif\nint cppm_fixture_value() { return 42; }\n").unwrap();
+    fs::write(
+        fixture.join("value.cpp"),
+        "#include \"value.h\"\nint cppm_fixture_value() { return 42; }\n",
+    )
+    .unwrap();
     success(
         Command::new("conan")
             .arg("export")

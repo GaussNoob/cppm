@@ -44,6 +44,8 @@ jobs:
       - name: Test setup failure handling and PATH ownership in Windows PowerShell
         shell: powershell
         run: ./scripts/test-windows-tools.ps1
+      - name: Test SDK bootstrap integrity and ownership
+        run: python scripts/test-setup-wasm.py
       - name: Install NSIS
         run: choco install nsis -y --no-progress
       - name: Package setup

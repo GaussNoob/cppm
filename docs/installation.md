@@ -5,9 +5,9 @@ Os pacotes não exigem Rust no computador que vai usar a ferramenta.
 
 ## Windows x64
 
-O caminho recomendado é abrir `cppm-0.4.1-windows-x86_64-setup.exe` e seguir o
-assistente. Ele instala o cppm, baixa Python 3.13, Conan 2, CMake e Ninja em um
-ambiente próprio e instala MSVC + Windows SDK se faltarem. Configura o PATH do
+O caminho recomendado é abrir `cppm-0.4.2-windows-x86_64-setup.exe` e seguir o
+assistente. Ele instala o cppm, baixa Python 3.13, Conan 2, CMake, Ninja,
+Emscripten 6.0.13 e seu Node.js em um ambiente próprio e instala MSVC + Windows SDK se faltarem. Configura o PATH do
 usuário e valida a compilação C++ antes de concluir. Depois, abra um terminal novo:
 
 ```powershell
@@ -26,8 +26,14 @@ fica em `%LOCALAPPDATA%\Programs\cppm\install.log`. O cppm aparece em
 **Configurações → Aplicativos instalados**; a desinstalação remove suas ferramentas
 privadas e preserva projetos, cache de pacotes Conan e o compilador compartilhado.
 
+O instalador 0.4.1 preparava apenas C++ nativo. Se um projeto WASM criado com ele
+acusar SDK ausente, execute o instalador atual sobre a instalação existente e
+abra outro terminal. Dentro do projeto, use `cppm doctor` e `cppm run dev`;
+não execute `cppm init` novamente. O SDK privado fica em `tools\emsdk` e é
+localizado automaticamente, mesmo com uma pasta de instalação personalizada.
+
 Consulte o [guia Windows](windows.md) para checksums e detalhes. O pacote
-`cppm-0.4.1-windows-x86_64.zip` continua disponível para instalar somente a CLI:
+`cppm-0.4.2-windows-x86_64.zip` continua disponível para instalar somente a CLI:
 
 Extraia o pacote Windows e execute no PowerShell, dentro da pasta extraída:
 
@@ -131,15 +137,21 @@ cppm init meu-wasm --template wasm
 No Drogon, `run dev` inicia uma API local com `/health` e `run test` valida uma
 resposta HTTP real. O Conan instala Drogon 1.9.14 e suas dependências.
 
-No WASM, instale o SDK Emscripten e configure-o uma vez com `emsdk activate latest`.
+No WASM, o instalador completo Windows prepara o SDK Emscripten automaticamente.
+Em outras instalações, instale o SDK e configure-o uma vez com `emsdk activate latest`.
 O cppm localiza o SDK automaticamente. `run dev` compila e serve
 o HTML em localhost; `run build` gera os artefatos em
 `.cppm/build/wasm-release/bin/`; `run test` usa Node.js. A porta do servidor pode
 ser alterada com `cppm run dev -- --port 9090`. Dependências Conan nativas não
 podem ser ligadas ao módulo WASM nesta versão.
 
-Instale o [SDK Emscripten](https://emscripten.org/docs/getting_started/downloads.html)
-e execute no seu projeto:
+Uma alternativa sem Git, com Python 3.11+ e o repositório disponível, é executar
+`python scripts/setup-wasm.py`. O script baixa uma revisão fixa do SDK, verifica
+o SHA-256 do arquivo de origem e instala em `~/.local/share/cppm/emsdk`. Depois,
+compila e executa um módulo WASM com o Node privado, sem alterar o ambiente global.
+Também é possível seguir as instruções do
+[SDK Emscripten](https://emscripten.org/docs/getting_started/downloads.html).
+Com o SDK instalado, execute no seu projeto:
 
 ```sh
 cd meu-wasm

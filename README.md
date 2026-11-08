@@ -63,8 +63,8 @@ instalação, PATH, build C++ com MSVC e desinstalação. `cppm` é o nome provi
 ## Instalação
 
 Baixe os pacotes na [última release](https://github.com/GaussNoob/cppm/releases/latest).
-No Windows, execute `cppm-0.4.1-windows-x86_64-setup.exe`: o assistente instala a
-CLI, Python, Conan, CMake e Ninja, prepara MSVC e Windows SDK se faltarem e
+No Windows, execute `cppm-0.4.2-windows-x86_64-setup.exe`: o assistente instala a
+CLI, Python, Conan, CMake, Ninja, Emscripten e seu Node.js privado, prepara MSVC e Windows SDK se faltarem e
 configura o PATH. Depois, abra um terminal novo e use `cppm`. A etapa do
 compilador pode pedir administrador e baixar vários GB.
 
@@ -286,6 +286,7 @@ cppm install raylib
 | `cppm install sqlite` | `<sqlite3.h>` |
 | `cppm install json` | `<nlohmann/json.hpp>` |
 | `cppm install curl` | `<curl/curl.h>` |
+| `cppm install sdl2` | `<SDL.h>` |
 | `cppm install sdl3` | `<SDL3/SDL.h>` |
 | `cppm install SFML` | `<SFML/Graphics.hpp>` |
 | `cppm install raylib` | `<raylib.h>` |
@@ -293,7 +294,11 @@ cppm install raylib
 `sqlite` é alias de `sqlite3`, `curl` de `libcurl`, `json` de `nlohmann_json`
 e `googletest` de `gtest`. Os nomes na CLI são normalizados para minúsculas,
 então `SFML` também funciona. `sdl2` e `sdl3` selecionam versões padrão das duas
-gerações do pacote `sdl`.
+gerações do pacote `sdl`. O nome `sdl` consulta a versão disponível no Conan e
+pode selecionar SDL3. Para código que usa `SDL.h`, escolha `cppm add sdl2`.
+SDL2 e SDL3 têm APIs diferentes; trocar somente o include não migra todo programa.
+Veja os exemplos mínimos em [examples/sdl2](examples/sdl2/main.cpp) e
+[examples/sdl3](examples/sdl3/main.cpp).
 
 O catálogo inclui bancos de dados, Boost, cpp-httplib, Asio, Dear ImGui, Qt,
 Catch2, Google Test, OpenCV, Eigen, Protobuf, GLM e oneTBB, além dos utilitários

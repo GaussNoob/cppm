@@ -151,8 +151,17 @@ não habilita TLS automaticamente.
 | --- | --- | --- | --- |
 | Dear ImGui | `cppm install imgui` | `1.92.9b` | `<imgui.h>` |
 | Qt 6 | `cppm install qt` | `6.12.0` | `<QCoreApplication>`, `<QWidget>` |
+| SDL2 | `cppm install sdl2` | `2.32.10` | `<SDL.h>` |
+| SDL3 | `cppm install sdl3` | `3.4.16` | `<SDL3/SDL.h>` |
 
 `dear-imgui` e `dearimgui` são aliases de `imgui`; `qt6` é alias de `qt`.
+
+`sdl2` e `sdl3` selecionam gerações do mesmo pacote Conan `sdl`. Usar apenas
+`cppm add sdl` consulta a versão disponível, que pode ser SDL3. Para exemplos
+antigos com `#include <SDL.h>`, use `cppm add sdl2`. A
+[migração para SDL3](https://wiki.libsdl.org/SDL3/README-migration) também envolve
+mudanças de API. Veja exemplos mínimos em [SDL2](../examples/sdl2/main.cpp) e
+[SDL3](../examples/sdl3/main.cpp).
 
 Dear ImGui fornece a interface. Para renderizar uma janela, escolha e configure
 um backend de plataforma e renderização, como SDL + OpenGL ou GLFW + OpenGL.

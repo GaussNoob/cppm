@@ -6,10 +6,15 @@ $SetupPath = (Resolve-Path -LiteralPath $SetupPath).Path
 $originalUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $originalProcessPath = $env:Path
 $originalProcessPolicy = $env:PSExecutionPolicyPreference
+$originalSdkEnvironment = @{}
 $registration = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\cppm'
 if (Test-Path $registration) { throw 'Run this integration test on a disposable Windows runner without an installed cppm.' }
 $directory = Join-Path ([IO.Path]::GetTempPath()) ('cppm setup test (spaces & symbols) ' + [Guid]::NewGuid().ToString('N'))
 try {
+    foreach ($name in @('EMSDK', 'CPPM_EMSDK', 'EM_CONFIG', 'EMSDK_NODE', 'EMSDK_PYTHON', 'EM_CACHE', 'EM_LLVM_ROOT', 'EM_BINARYEN_ROOT', 'EM_NODE_JS')) {
+        $originalSdkEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+        [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+    }
     # Do not require the user to relax the PowerShell policy globally.
     $env:PSExecutionPolicyPreference = 'Restricted'
     # Force the installer to obtain its own Python, Conan, CMake and Ninja.
@@ -74,6 +79,34 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Conan dependency installation failed in the fresh-terminal environment.' }
     cppm -C $project run dev
     if ($LASTEXITCODE -ne 0) { throw 'C++ build with an installed Conan dependency failed.' }
+    $wasm = Join-Path $directory 'user-wasm'
+    cppm init $wasm --template wasm
+    if ($LASTEXITCODE -ne 0) { throw 'WebAssembly project creation failed.' }
+    $wasmReport = cppm -C $wasm doctor --json | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) { throw 'Private Emscripten/Node SDK was not discovered in a fresh terminal.' }
+    $wasmReport | ConvertTo-Json -Depth 5 | Write-Host
+    $sdkCheck = $wasmReport.checks | Where-Object { $_.name -eq 'Emscripten' }
+    $expectedSdk = (Join-Path $directory 'tools\emsdk').Replace('\', '/')
+    if (-not $wasmReport.ok -or $sdkCheck.detail.Replace('\', '/').IndexOf($expectedSdk, [StringComparison]::OrdinalIgnoreCase) -lt 0) {
+        throw 'WASM diagnosis did not use the SDK installed by this setup.'
+    }
+    cppm -C $wasm run build
+    if ($LASTEXITCODE -ne 0) { throw 'WebAssembly compilation failed.' }
+    cppm -C $wasm run test
+    if ($LASTEXITCODE -ne 0) { throw 'Compiled WebAssembly did not run in Node.js.' }
+    $python = Join-Path $directory 'tools\venv\Scripts\python.exe'
+    & $python (Join-Path $PSScriptRoot '..\tests\fixtures\template-dev.py') (Join-Path $directory 'bin\cppm.exe') $wasm wasm run
+    if ($LASTEXITCODE -ne 0) { throw 'cppm run dev did not serve the WASM HTML, JS and module over HTTP.' }
+    foreach ($generation in @('sdl2', 'sdl3')) {
+        $sdlProject = Join-Path $directory ("user-" + $generation)
+        cppm init $sdlProject
+        if ($LASTEXITCODE -ne 0) { throw "Project creation failed for $generation." }
+        cppm -C $sdlProject add $generation
+        if ($LASTEXITCODE -ne 0) { throw "Installation failed for $generation." }
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot "..\examples\$generation\main.cpp") -Destination (Join-Path $sdlProject 'src\main.cpp')
+        cppm -C $sdlProject run dev
+        if ($LASTEXITCODE -ne 0) { throw "The documented header/example did not compile and run for $generation." }
+    }
     Set-Content -LiteralPath (Join-Path $directory 'keep.txt') -Value 'user file'
     # _?= keeps NSIS in this process so Start-Process waits for all cleanup.
     $uninstaller = Join-Path $directory 'uninstall.exe'
@@ -88,12 +121,13 @@ try {
     foreach ($entry in $receipt.pathEntries) {
         if (@([Environment]::GetEnvironmentVariable('Path', 'User') -split ';') -contains $entry) { throw 'Uninstaller kept an owned PATH entry.' }
     }
-    Write-Host 'Setup integration passed: real downloads, reinstall, fresh PATH, native C++ build/test, Installed apps and selective uninstall.'
+    Write-Host 'Setup integration passed: downloads, reinstall, fresh PATH, native C++, Conan, SDL2, SDL3, WASM build/Node/HTTP, Installed apps and selective uninstall.'
 }
 finally {
     [Environment]::SetEnvironmentVariable('Path', $originalUserPath, 'User')
     $env:Path = $originalProcessPath
     $env:PSExecutionPolicyPreference = $originalProcessPolicy
+    foreach ($name in $originalSdkEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name, $originalSdkEnvironment[$name], 'Process') }
     if (Test-Path $registration) { Remove-Item $registration -Recurse }
     if (Test-Path 'HKCU:\Software\cppm') { Remove-Item 'HKCU:\Software\cppm' -Recurse }
     if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }

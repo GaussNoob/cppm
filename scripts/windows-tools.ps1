@@ -168,6 +168,10 @@ function Install-CppmTools([string]$ToolsDir) {
     foreach ($tool in @('python', 'conan', 'cmake', 'ninja')) {
         Invoke-CppmTool (Join-Path $scripts "$tool.exe") @('--version')
     }
+    Write-Host 'Installing the WebAssembly SDK and its private Node.js runtime...'
+    Invoke-CppmTool (Join-Path $scripts 'python.exe') @(
+        (Join-Path $PSScriptRoot 'setup-wasm.py'), '--sdk-dir', (Join-Path $ToolsDir 'emsdk')
+    )
     $reboot = Install-CppmBuildTools $downloads $configuration
     @{ Scripts = $scripts; RebootRequired = $reboot }
 }

@@ -8,7 +8,15 @@ use std::{
     sync::OnceLock,
 };
 
+#[cfg(not(windows))]
 pub const SETUP_HINT: &str = "Install the Emscripten SDK: https://emscripten.org/docs/getting_started/downloads.html\ncppm detects installed SDKs automatically. Set CPPM_EMSDK to select a custom SDK directory.\nIf the SDK has not been configured, run its `emsdk activate latest` once.\nManual activation is also supported: source /path/to/emsdk/emsdk_env.sh (Bash/zsh), source /path/to/emsdk/emsdk_env.fish (fish), or emsdk_env.bat (Windows).\nRun `cppm doctor` from the WebAssembly project to check the environment.";
+#[cfg(windows)]
+pub const SETUP_HINT: &str = concat!(
+    "Rerun the current cppm Windows setup to install Emscripten and Node.js automatically: ",
+    "https://github.com/GaussNoob/cppm/releases/latest\n",
+    "Existing projects are preserved. Open a new terminal and retry cppm doctor / cppm run dev.\n",
+    "For a separately installed SDK, set CPPM_EMSDK to its directory. Shell activation is not required."
+);
 
 static TOOLCHAIN: OnceLock<Result<Toolchain, String>> = OnceLock::new();
 
@@ -44,6 +52,21 @@ pub fn command(program: impl AsRef<OsStr>) -> Result<Command> {
         program
     };
     let mut command = platform::command(program);
+    #[cfg(windows)]
+    if matches!(
+        Path::new(program).extension().and_then(OsStr::to_str),
+        Some("bat" | "cmd")
+    ) {
+        let script = Path::new(program).with_extension("py");
+        if script.is_file()
+            && let Some(python) = &toolchain.python
+        {
+            // Run the SDK's Python entrypoint directly so cmd.exe never
+            // interprets SDK or project paths containing spaces and '&'.
+            command = platform::command(python);
+            command.arg(script);
+        }
+    }
     command.envs(toolchain.environment.iter().cloned());
     Ok(command)
 }
@@ -128,6 +151,17 @@ impl Toolchain {
         let directory = directory
             .canonicalize()
             .with_context(|| format!("SDK directory {} does not exist", directory.display()))?;
+        #[cfg(windows)]
+        let directory = {
+            let path = directory
+                .to_str()
+                .context("the Emscripten SDK requires a UTF-8 path")?;
+            if let Some(network) = path.strip_prefix(r"\\?\UNC\") {
+                PathBuf::from(format!(r"\\{network}"))
+            } else {
+                PathBuf::from(path.strip_prefix(r"\\?\").unwrap_or(path))
+            }
+        };
         let tools = directory.join("upstream/emscripten");
         let compiler = platform::find_executable(tools.join("em++"))
             .with_context(|| format!("em++ is missing from SDK {}", directory.display()))?;
@@ -203,6 +237,16 @@ impl Toolchain {
 
 fn candidates() -> Vec<PathBuf> {
     let mut directories = Vec::new();
+    if let Ok(executable) = std::env::current_exe()
+        && let Some(parent) = executable.parent()
+        && let Ok(receipt) = std::fs::read(parent.join("cppm.install.json"))
+        && let Ok(receipt) = serde_json::from_slice::<serde_json::Value>(
+            receipt.strip_prefix(b"\xef\xbb\xbf").unwrap_or(&receipt),
+        )
+        && let Some(tools) = receipt.get("toolsDir").and_then(serde_json::Value::as_str)
+    {
+        directories.push(PathBuf::from(tools).join("emsdk"));
+    }
     if let Some(data) = std::env::var_os("XDG_DATA_HOME") {
         directories.push(PathBuf::from(data).join("cppm/emsdk"));
     }
@@ -304,7 +348,7 @@ values = {'__file__': str(config)}
 with contextlib.redirect_stdout(sys.stderr):
     exec(compile(config.read_bytes(), str(config), 'exec'), values)
 def expand(value):
-    return os.path.expandvars(os.path.expanduser(str(value))) if value else None
+    return os.path.normpath(os.path.expandvars(os.path.expanduser(str(value)))) if value else None
 node = os.environ.get('EM_NODE_JS') or values.get('NODE_JS') or 'node'
 if isinstance(node, (list, tuple)):
     node = node[0]

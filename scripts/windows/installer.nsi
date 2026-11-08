@@ -26,7 +26,7 @@ ShowUninstDetails show
 
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "Welcome to cppm ${VERSION}"
-!define MUI_WELCOMEPAGE_TEXT "This wizard installs cppm and prepares Python, Conan, CMake, Ninja, MSVC and the Windows SDK.$\r$\n$\r$\nAn Internet connection is required. If the C++ compiler is missing, Microsoft Build Tools will request administrator approval and download several GB.$\r$\n$\r$\nSetup configures your user PATH. After installation, open a new terminal and start using cppm."
+!define MUI_WELCOMEPAGE_TEXT "This wizard installs cppm and prepares Python, Conan, CMake, Ninja, Emscripten, Node.js, MSVC and the Windows SDK.$\r$\n$\r$\nAn Internet connection is required. The native and WebAssembly toolchains download several GB. If MSVC is missing, Microsoft Build Tools will request administrator approval.$\r$\n$\r$\nSetup configures your user PATH. Open a new terminal to start using cppm, including its WebAssembly template."
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "${PROJECT_ROOT}\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
@@ -64,6 +64,7 @@ Section "cppm and C++ build tools" Main
   File "${PROJECT_ROOT}\scripts\windows-tools.ps1"
   File "${PROJECT_ROOT}\scripts\windows-tools.json"
   File "${PROJECT_ROOT}\scripts\setup-windows.ps1"
+  File "${PROJECT_ROOT}\scripts\setup-wasm.py"
   SetOutPath "$INSTDIR\docs"
   File "${PROJECT_ROOT}\LICENSE"
   File "${PROJECT_ROOT}\THIRD_PARTY_NOTICES.txt"
@@ -110,6 +111,7 @@ Section "Uninstall"
   Delete "$INSTDIR\installer\windows-tools.ps1"
   Delete "$INSTDIR\installer\windows-tools.json"
   Delete "$INSTDIR\installer\setup-windows.ps1"
+  Delete "$INSTDIR\installer\setup-wasm.py"
   Delete "$INSTDIR\docs\LICENSE"
   Delete "$INSTDIR\docs\THIRD_PARTY_NOTICES.txt"
   Delete "$INSTDIR\docs\installation.md"
