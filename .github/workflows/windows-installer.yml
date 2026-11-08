@@ -30,6 +30,7 @@ jobs:
             ~/.cargo/git
             target
           key: windows-setup-rust-${{ hashFiles('Cargo.lock', 'Cargo.toml', '.cargo/config.toml', 'src/**/*.rs') }}
+          restore-keys: windows-setup-rust-
       - name: Build Windows CLI
         run: cargo +stable build --release --locked
       - uses: actions/cache/save@v6

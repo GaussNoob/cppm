@@ -51,7 +51,7 @@ try {
         cppm -C $project --verbose build
         $diagnostic = @('powershell.exe', '-NoProfile', '-Command', '$env:Path; Get-Command ninja -All | Format-List Source; cppm doctor --json; exit $LASTEXITCODE') | ConvertTo-Json -Compress
         Add-Content -LiteralPath (Join-Path $project 'cppm.toml') -Value ("`ndiagnose = " + $diagnostic)
-        cppm -C $project run diagnose
+        cppm -C $project --verbose run diagnose
         throw 'Native C++ compilation/execution failed.'
     }
     cppm -C $project run test

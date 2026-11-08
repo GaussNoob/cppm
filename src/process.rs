@@ -49,15 +49,22 @@ pub fn script(
         bail!("recursive script '{name}' ({stack}); call a build/exec command instead");
     }
     let executable = std::env::current_exe()?;
-    let mut paths = vec![
-        executable
-            .parent()
-            .context("cannot locate cppm executable")?
-            .to_path_buf(),
-    ];
-    paths.extend(std::env::split_paths(
-        &std::env::var_os("PATH").unwrap_or_default(),
-    ));
+    let bin = executable
+        .parent()
+        .context("cannot locate cppm executable")?;
+    let mut paths: Vec<_> =
+        std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect();
+    let present = paths.iter().any(|path| {
+        if cfg!(windows) {
+            path.to_string_lossy()
+                .eq_ignore_ascii_case(&bin.to_string_lossy())
+        } else {
+            path == bin
+        }
+    });
+    if !present {
+        paths.insert(0, bin.to_path_buf());
+    }
     let (mut command, _temporary) = match body {
         Script::Command(argv) => {
             let mut command = platform::command(argv.first().context("script has no executable")?);
@@ -81,7 +88,7 @@ pub fn script(
 }
 
 #[cfg(not(windows))]
-fn shell(body: &str, args: &[String]) -> Result<(Command, Option<tempfile::NamedTempFile>)> {
+fn shell(body: &str, args: &[String]) -> Result<(Command, Option<tempfile::TempPath>)> {
     let mut command = Command::new("sh");
     command
         .args(["-c", &format!("{body} \"$@\""), "cppm-script"])
@@ -90,7 +97,7 @@ fn shell(body: &str, args: &[String]) -> Result<(Command, Option<tempfile::Named
 }
 
 #[cfg(windows)]
-fn shell(body: &str, args: &[String]) -> Result<(Command, Option<tempfile::NamedTempFile>)> {
+fn shell(body: &str, args: &[String]) -> Result<(Command, Option<tempfile::TempPath>)> {
     use std::io::Write;
     let mut script = tempfile::Builder::new()
         .prefix("cppm-")
@@ -108,6 +115,9 @@ fn shell(body: &str, args: &[String]) -> Result<(Command, Option<tempfile::Named
         "$ErrorActionPreference = 'Stop'\n$cppmScriptArgs = @((ConvertFrom-Json -InputObject $env:CPPM_SCRIPT_ARGS))\n{body}\nif ($null -ne $LASTEXITCODE) {{ exit $LASTEXITCODE }}"
     )?;
     script.flush()?;
+    // PowerShell must be able to open the script without our writer handle
+    // holding it open. TempPath retains deletion on drop after execution.
+    let script = script.into_temp_path();
     let mut command = Command::new("powershell.exe");
     command
         .args([
@@ -118,7 +128,7 @@ fn shell(body: &str, args: &[String]) -> Result<(Command, Option<tempfile::Named
             "Bypass",
             "-File",
         ])
-        .arg(script.path())
+        .arg(script.as_os_str())
         .env("CPPM_SCRIPT_ARGS", serde_json::to_string(args)?);
     Ok((command, Some(script)))
 }

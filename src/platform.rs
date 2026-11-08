@@ -10,9 +10,11 @@ pub fn find_executable(program: impl AsRef<OsStr>) -> Option<PathBuf> {
     let candidates = if path.components().count() > 1 || path.is_absolute() {
         vec![path.to_path_buf()]
     } else {
-        std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
-            .map(|directory| directory.join(path))
-            .collect()
+        let paths = std::env::var_os("PATH").unwrap_or_default();
+        let directories = std::env::split_paths(&paths);
+        #[cfg(windows)]
+        let directories = managed_tools().into_iter().cloned().chain(directories);
+        directories.map(|directory| directory.join(path)).collect()
     };
     for candidate in candidates {
         #[cfg(windows)]
@@ -64,7 +66,12 @@ fn executable(program: &OsStr) -> std::ffi::OsString {
         let candidates = if path.components().count() > 1 {
             vec![path.to_path_buf()]
         } else {
-            std::env::split_paths(&paths)
+            let mut directories: Vec<_> = std::env::split_paths(&paths).collect();
+            if let Some(managed) = managed_tools() {
+                directories.insert(0, managed.clone());
+            }
+            directories
+                .into_iter()
                 .map(|directory| directory.join(path))
                 .collect()
         };
@@ -78,6 +85,21 @@ fn executable(program: &OsStr) -> std::ffi::OsString {
         }
     }
     program.to_owned()
+}
+
+#[cfg(windows)]
+fn managed_tools() -> Option<&'static PathBuf> {
+    use std::sync::OnceLock;
+    static TOOLS: OnceLock<Option<PathBuf>> = OnceLock::new();
+    TOOLS
+        .get_or_init(|| {
+            let executable = std::env::current_exe().ok()?;
+            let receipt = std::fs::read(executable.parent()?.join("cppm.install.json")).ok()?;
+            let receipt: serde_json::Value = serde_json::from_slice(&receipt).ok()?;
+            let directory = PathBuf::from(receipt.get("toolsDir")?.as_str()?).join("venv/Scripts");
+            directory.is_dir().then_some(directory)
+        })
+        .as_ref()
 }
 
 #[cfg(not(windows))]
@@ -107,9 +129,21 @@ mod windows {
             .as_ref()
             .map_err(|error| anyhow!(error.clone()))?;
         command.envs(environment.iter().cloned());
+        if let Some(managed) = super::managed_tools() {
+            let inherited = command
+                .get_envs()
+                .find(|(key, _)| key.to_string_lossy().eq_ignore_ascii_case("PATH"))
+                .and_then(|(_, value)| value.map(OsString::from))
+                .unwrap_or_else(|| std::env::var_os("PATH").unwrap_or_default());
+            let mut paths = vec![managed.clone()];
+            paths.extend(std::env::split_paths(&inherited));
+            command.env("PATH", std::env::join_paths(paths)?);
+        }
         if std::env::var("CPPM_VERBOSE").as_deref() == Ok("true") {
-            for (key, value) in environment {
-                if key.to_string_lossy().eq_ignore_ascii_case("PATH") {
+            for (key, value) in command.get_envs() {
+                if key.to_string_lossy().eq_ignore_ascii_case("PATH")
+                    && let Some(value) = value
+                {
                     eprintln!("MSVC subprocess PATH: {}", value.to_string_lossy());
                 }
             }
