@@ -96,8 +96,15 @@ with tempfile.TemporaryFile(mode='w+') as log:
         server.wait(timeout=10)
         log.seek(0)
         print(log.read())
-        try:
-            with socket.create_connection(('127.0.0.1', port), timeout=1):
+        # The parent can exit before its signalled children release their sockets.
+        # Wait for shutdown to settle, while still failing for a surviving server.
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                with socket.create_connection(('127.0.0.1', port), timeout=0.2):
+                    pass
+            except OSError:
+                break
+            if time.monotonic() >= deadline:
                 raise AssertionError('A development server remains running after shutdown')
-        except OSError:
-            pass
+            time.sleep(0.05)

@@ -779,6 +779,13 @@ pub fn run(cwd: &Path, options: &InstallOptions) -> Result<()> {
     let mut session = Session::start()?;
     let mut redraw = true;
     loop {
+        // Subprocesses can consume a resize notification while the UI is
+        // suspended. Check the actual dimensions as well as terminal events.
+        let size = session.terminal.size()?;
+        if session.terminal.get_frame().area().as_size() != size {
+            session.terminal.resize(size.into())?;
+            redraw = true;
+        }
         redraw |= app.poll_fetch();
         if redraw {
             session

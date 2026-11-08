@@ -107,6 +107,13 @@ mod windows {
             .as_ref()
             .map_err(|error| anyhow!(error.clone()))?;
         command.envs(environment.iter().cloned());
+        if std::env::var("CPPM_VERBOSE").as_deref() == Ok("true") {
+            for (key, value) in environment {
+                if key.to_string_lossy().eq_ignore_ascii_case("PATH") {
+                    eprintln!("MSVC subprocess PATH: {}", value.to_string_lossy());
+                }
+            }
+        }
         Ok(())
     }
 
@@ -158,7 +165,9 @@ mod windows {
         );
         let utf16: Vec<u16> = output
             .stdout
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
             .collect();
         let source =

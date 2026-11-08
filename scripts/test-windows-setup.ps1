@@ -44,7 +44,16 @@ try {
     cppm init $project
     if ($LASTEXITCODE -ne 0) { throw 'Project creation failed.' }
     cppm -C $project run dev
-    if ($LASTEXITCODE -ne 0) { throw 'Native C++ compilation/execution failed.' }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host 'Diagnosing the failing project and script environment...'
+        Write-Host "Fresh terminal PATH: $env:Path"
+        cppm -C $project doctor --json | Write-Host
+        cppm -C $project --verbose build
+        $diagnostic = @('powershell.exe', '-NoProfile', '-Command', '$env:Path; Get-Command ninja -All | Format-List Source; cppm doctor --json; exit $LASTEXITCODE') | ConvertTo-Json -Compress
+        Add-Content -LiteralPath (Join-Path $project 'cppm.toml') -Value ("`ndiagnose = " + $diagnostic)
+        cppm -C $project run diagnose
+        throw 'Native C++ compilation/execution failed.'
+    }
     cppm -C $project run test
     if ($LASTEXITCODE -ne 0) { throw 'Native C++ tests failed.' }
     Set-Content -LiteralPath (Join-Path $directory 'keep.txt') -Value 'user file'

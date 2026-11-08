@@ -180,6 +180,11 @@ fn cmake_path(path: &Path) -> Result<String> {
         "the obf preset cannot use paths containing ';', newlines, '<' or '>'"
     );
     #[cfg(windows)]
-    let path = path.replace('\\', "/");
-    Ok(path.into())
+    {
+        Ok(path.replace('\\', "/"))
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(path.to_owned())
+    }
 }

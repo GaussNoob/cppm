@@ -353,6 +353,10 @@ fn remove_file(path: &Path) -> Result<()> {
     #[cfg(windows)]
     {
         let mut permissions = fs::metadata(path)?.permissions();
+        #[allow(
+            clippy::permissions_set_readonly_false,
+            reason = "Windows-only: clears the read-only file attribute; Unix permissions are not changed"
+        )]
         permissions.set_readonly(false);
         fs::set_permissions(path, permissions)?;
     }

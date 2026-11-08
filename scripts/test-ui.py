@@ -90,6 +90,7 @@ class Terminal:
         self.resize(120, 40)
 
     def resize(self, columns, rows):
+        self.pending = b""
         self.screen.resize(columns, rows)
         fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
         os.kill(self.pid, signal.SIGWINCH)
@@ -240,8 +241,9 @@ else:
             assert (project / ".cppm/build/obf/bin/ui-qa").is_file()
             ui.send("\r")
             ui.expect("Concluído: cppm build obf --obf-basic")
-            ui.resize(80, 24)
             ui.send("1")
+            ui.expect("COMECE POR AQUI")
+            ui.resize(80, 24)
             ui.expect("COMECE POR AQUI")
             ui.expect("Explorar bibliotecas")
             assert b"38;2;" in ui.history, "truecolor theme was not rendered"
