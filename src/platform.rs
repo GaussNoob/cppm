@@ -184,16 +184,31 @@ mod windows {
             script.is_file(),
             "VsDevCmd.bat is missing from the Visual Studio installation"
         );
+        // Explicit selection sets VSCMD_ARG_VCVARS_VER. Conan's PowerShell
+        // activator can then reuse this environment instead of calling vcvars
+        // again through batch files that misinterpret metacharacters in PATH.
+        let version_file = PathBuf::from(installation)
+            .join("VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt");
+        let toolset = std::fs::read_to_string(&version_file)
+            .context("cannot read the Visual Studio default C++ toolset version")?;
+        let toolset = toolset.trim().trim_start_matches('\u{feff}').trim();
+        ensure!(
+            toolset.split('.').count() >= 2
+                && toolset
+                    .split('.')
+                    .all(|part| !part.is_empty() && part.bytes().all(|c| c.is_ascii_digit())),
+            "invalid Visual Studio C++ toolset version"
+        );
         let architecture = match std::env::consts::ARCH {
             "x86_64" => "x64",
             "x86" => "x86",
             "aarch64" => "arm64",
             other => bail!("unsupported Windows host architecture '{other}'"),
         };
-        // The command text is fixed. The discovered path travels in an environment
-        // variable so spaces and cmd metacharacters never become command syntax.
+        // The discovered path travels in an environment variable; the version
+        // contains only validated numbers and dots, never command syntax.
         let output = Command::new("cmd.exe").args(["/D", "/U", "/V:OFF", "/S", "/C"])
-            .raw_arg(format!(r#""call "%CPPM_VSDEVCMD%" -no_logo -arch={architecture} -host_arch={architecture} >nul && set""#))
+            .raw_arg(format!(r#""call "%CPPM_VSDEVCMD%" -no_logo -arch={architecture} -host_arch={architecture} -vcvars_ver={toolset} >nul && set""#))
             .env("CPPM_VSDEVCMD", script).output().context("cannot initialize the MSVC build environment")?;
         ensure!(
             output.status.success(),
