@@ -43,6 +43,9 @@ try {
     $configuration = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'windows-tools.json') -Raw | ConvertFrom-Json
     foreach ($package in $configuration.packages) {
         $name, $version = $package -split '=='
+        # The fourth Ninja wheel version component is a packaging revision,
+        # while ninja --version reports the upstream three-component version.
+        if ($name -eq 'ninja') { $version = (($version -split '\.')[0..2] -join '.') }
         $check = $report.checks | Where-Object { $_.name -eq $name }
         if (-not $check -or $check.detail -notmatch [regex]::Escape($version)) {
             throw "cppm must use its private $name $version; got $($check.detail)."
