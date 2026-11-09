@@ -91,6 +91,12 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, options: &InstallOptions) {
         Paragraph::new(text(context, MUTED)).alignment(Alignment::Right),
         header[1],
     );
+    if let Some(notice) = &app.update_notice {
+        frame.render_widget(
+            Paragraph::new(text(notice, YELLOW)),
+            Rect::new(chunks[0].x, chunks[0].y + 1, chunks[0].width, 1),
+        );
+    }
     let labels: Vec<Line> = TABS
         .iter()
         .enumerate()

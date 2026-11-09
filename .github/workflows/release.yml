@@ -1,0 +1,102 @@
+name: Publish GitHub release
+
+on:
+  push:
+    tags: ['v[0-9]*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+          - os: windows-latest
+            platform: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Validate tag against Cargo.toml
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python scripts/release-version.py
+      - name: Select stable Rust
+        run: rustup update stable --no-self-update
+      - name: Install build tools
+        run: python -m pip install conan==2.34.0 cmake==3.31.6 ninja==1.11.1.4
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Test CLI
+        run: cargo test --locked
+      - name: Build release binary
+        run: cargo build --release --locked
+      - name: Test Linux download, integrity and self-update
+        if: runner.os == 'Linux'
+        run: python scripts/test-update.py --binary target/release/cppm
+      - name: Test Windows install and download integrity
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          ./scripts/test-install.ps1
+          ./scripts/test-bootstrap.ps1
+      - name: Package CLI
+        run: python scripts/package.py
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        run: choco install nsis -y --no-progress
+      - name: Package Windows setup
+        if: runner.os == 'Windows'
+        run: python scripts/package-windows-installer.py --makensis 'C:\Program Files (x86)\NSIS\makensis.exe'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Write version marker
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python scripts/release-version.py --output dist/VERSION
+      - name: Publish all platforms together
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > release-draft.txt; then
+            if [ "$(cat release-draft.txt)" != true ]; then
+              echo 'This release is already published; use a new version tag.' >&2
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --generate-notes --title "cppm $RELEASE_TAG"
+          fi
+          gh release upload "$RELEASE_TAG" dist/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest

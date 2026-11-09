@@ -79,6 +79,7 @@ struct App {
     fetch: Option<Fetch>,
     discovery_started: bool,
     discovery_status: String,
+    update_notice: Option<String>,
 }
 
 impl App {
@@ -104,6 +105,7 @@ impl App {
             fetch: None,
             discovery_started: false,
             discovery_status: "Sugestões locais • abra Explorar para consultar o Conan".into(),
+            update_notice: None,
         };
         app.reload()?;
         Ok(app)
@@ -573,6 +575,12 @@ fn quick_commands(project: Option<&Project>) -> Vec<Request> {
     }
     requests.extend([
         Request::new(
+            "Atualizar cppm",
+            &["update"],
+            "Baixa a última versão estável do cppm no GitHub e verifica o SHA-256 antes de instalar.",
+            false,
+        ),
+        Request::new(
             "Compilar · Debug",
             &["build"],
             "Compila o projeto para desenvolvimento.",
@@ -778,7 +786,14 @@ pub fn run(cwd: &Path, options: &InstallOptions) -> Result<()> {
     let mut app = App::new(cwd)?;
     let mut session = Session::start()?;
     let mut redraw = true;
+    let mut next_update_poll = std::time::Instant::now();
     loop {
+        if !options.offline && std::time::Instant::now() >= next_update_poll {
+            let notice = crate::update::notice();
+            redraw |= notice != app.update_notice;
+            app.update_notice = notice;
+            next_update_poll = std::time::Instant::now() + Duration::from_secs(1);
+        }
         // Subprocesses can consume a resize notification while the UI is
         // suspended. Check the actual dimensions as well as terminal events.
         let size = session.terminal.size()?;

@@ -67,7 +67,12 @@ jobs:
       - name: Windows installer tests
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./scripts/test-install.ps1
+        run: |
+          ./scripts/test-install.ps1
+          ./scripts/test-bootstrap.ps1
+      - name: Linux installer and self-update tests
+        if: runner.os == 'Linux'
+        run: python scripts/test-update.py --binary target/release/cppm
       - name: Package
         run: python scripts/package.py
       - uses: actions/upload-artifact@v7

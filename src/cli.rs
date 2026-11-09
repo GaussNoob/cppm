@@ -6,7 +6,7 @@ use crate::{
     project::{self, Project},
     store,
     templates::Template,
-    ui, watch,
+    ui, update, watch,
 };
 use anyhow::{Context, Result, ensure};
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -42,6 +42,14 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 enum Action {
+    /// Update cppm itself from the latest stable GitHub release.
+    Update {
+        /// Check for a new version without installing it.
+        #[arg(long)]
+        check: bool,
+    },
+    #[command(name = "__update-check", hide = true)]
+    UpdateCheck,
     /// Open the interactive package explorer, project dashboard and command palette.
     #[command(visible_aliases = ["tui", "interactive"])]
     Ui,
@@ -201,6 +209,23 @@ impl Cli {
                 .with_context(|| format!("cannot enter {}", directory.display()))?;
         }
         let cwd = std::env::current_dir()?;
+        match &self.command {
+            Action::Update { check } => {
+                ensure!(
+                    !self.offline,
+                    "cppm update needs Internet access; omit --offline"
+                );
+                return update::run(*check);
+            }
+            Action::UpdateCheck => {
+                if !self.offline {
+                    update::refresh_cache();
+                }
+                return Ok(());
+            }
+            _ => {}
+        }
+        update::start(self.offline, matches!(self.command, Action::Ui));
         let install = InstallOptions {
             profile: self.profile,
             // Scripts start from the project root; preserve the caller's location.

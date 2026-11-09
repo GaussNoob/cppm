@@ -50,7 +50,21 @@ if ($BinaryPath -ne $destination) {
     $temporary = Join-Path $InstallDir ('cppm-' + [Guid]::NewGuid().ToString('N') + '.tmp')
     try {
         Copy-Item -LiteralPath $BinaryPath -Destination $temporary
-        Move-Item -LiteralPath $temporary -Destination $destination -Force
+        # Windows can rename a running image, but cannot overwrite it in place.
+        $previous = Join-Path $InstallDir 'cppm.exe.previous'
+        if (Test-Path -LiteralPath $previous) { Remove-Item -LiteralPath $previous -Force }
+        if (Test-Path -LiteralPath $destination) { Move-Item -LiteralPath $destination -Destination $previous }
+        try {
+            Move-Item -LiteralPath $temporary -Destination $destination
+        }
+        catch {
+            if (Test-Path -LiteralPath $previous) { Move-Item -LiteralPath $previous -Destination $destination }
+            throw
+        }
+        # During self-update the old process still owns this file until it exits.
+        if (Test-Path -LiteralPath $previous) {
+            try { Remove-Item -LiteralPath $previous -Force } catch { Write-Verbose 'Previous executable will be cleaned up at the next installation.' }
+        }
     }
     finally {
         if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary }

@@ -38,6 +38,7 @@ compatibilidade de binários, CMake configura targets e Ninja compila.
 | Módulo | Responsabilidade |
 | --- | --- |
 | `cli` | Argumentos, despacho de comandos e saída para o usuário |
+| `update` | Consulta assíncrona de novas releases, cache de avisos e atualização da própria CLI |
 | `manifest` | Modelo do projeto, leitura TOML e validação |
 | `packages` | Catálogo pequeno e mapeamento de pacotes para targets CMake |
 | `project` | Descoberta da raiz, criação do projeto e exclusão mútua |

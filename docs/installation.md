@@ -3,6 +3,76 @@
 Baixe a [última release](https://github.com/GaussNoob/cppm/releases/latest).
 Os pacotes não exigem Rust no computador que vai usar a ferramenta.
 
+## Instalar direto do GitHub
+
+No Linux x64 ou ARM64, com `curl`, `tar` e `sha256sum` disponíveis:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/GaussNoob/cppm/main/scripts/bootstrap.sh -o install-cppm.sh
+sh install-cppm.sh
+```
+
+O destino padrão é `~/.local/bin/cppm`. Para escolher outra pasta ou uma versão
+específica, use `sh install-cppm.sh --prefix "$HOME/programas" --version 0.4.2`.
+Se necessário, adicione `~/.local/bin` ao PATH do shell. No fish, execute
+`fish_add_path ~/.local/bin`; no Bash/Zsh, acrescente `export PATH="$HOME/.local/bin:$PATH"`
+ao arquivo de configuração do shell e abra outro terminal.
+
+No Windows x64, use Windows PowerShell 5.1 ou superior:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/GaussNoob/cppm/main/scripts/bootstrap.ps1 -OutFile install-cppm.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-cppm.ps1
+```
+
+O script instala a CLI em `%LOCALAPPDATA%\Programs\cppm\bin` e configura o
+PATH do usuário. Use `-InstallDir 'D:\Minhas ferramentas\cppm'` para personalizar,
+`-NoPath` para preservar o PATH, ou `-Version 0.4.2` para fixar uma release.
+`-WithDependencies` também prepara Python, Conan, CMake, Ninja, MSVC/Windows SDK
+e Emscripten/Node; essa opção pode pedir administrador para o compilador.
+Abra um terminal novo e execute `cppm doctor`.
+
+Os scripts consultam o arquivo `VERSION` da última release, escolhem o pacote
+da arquitetura e verificam seu SHA-256 e a versão do executável antes de instalar.
+Os downloads vêm de HTTPS no GitHub. As releases antigas sem `VERSION` precisam
+ser baixadas manualmente; a instalação remota fica disponível após publicar
+a primeira release com o workflow descrito abaixo. Os pacotes Linux usam glibc;
+Alpine/musl exige compilação local. O workflow publica Linux x64/ARM64 e Windows x64.
+
+## Atualizar o cppm
+
+```sh
+cppm update --check  # consulta imediatamente, sem instalar
+cppm update          # baixa, verifica e instala a nova versão
+```
+
+Esses comandos funcionam fora de projetos. `cppm update` atualiza o executável
+no diretório da instalação atual, inclusive instalações personalizadas, e mantém
+as ferramentas privadas, o PATH e os projetos. A pasta precisa permitir escrita
+ao usuário. Uma versão local mais recente que a release não é substituída.
+No Linux, a substituição é atômica. No Windows, o executável anterior é renomeado
+para permitir atualizar enquanto está em uso e restaurado se a substituição falhar.
+Uma cópia `cppm.exe.previous` ainda em uso é removida na próxima instalação ou
+desinstalação. Os próximos comandos usam a nova versão; reabra a interface
+interativa se ela estiver aberta durante a atualização.
+
+Ao executar comandos em um terminal, a ferramenta consulta atualizações em
+segundo plano, sem esperar a rede, no máximo uma vez a cada seis horas.
+Quando já existe uma versão nova no cache, cada uso mostra:
+
+```text
+cppm: Atualização disponível: 0.4.2 → 0.4.3. Execute `cppm update`.
+```
+
+Na primeira consulta, o aviso aparece na próxima execução; `cppm ui` também
+acompanha o resultado e mostra um aviso no cabeçalho. A aba Comandos oferece
+**Atualizar cppm**. Falhas de rede ficam silenciosas e são tentadas novamente
+após uma hora. A consulta automática não roda com `--offline`, saída redirecionada,
+`CI=true` ou `CPPM_NO_UPDATE_CHECK=1`. O comando explícito `update --check`
+sempre consulta a rede, exceto com `--offline`, que retorna uma mensagem de erro.
+O cache fica em `$XDG_CACHE_HOME/cppm/update.json` (ou `~/.cache/cppm/update.json`)
+no Linux e `%LOCALAPPDATA%\cppm\update.json` no Windows.
+
 ## Windows x64
 
 O caminho recomendado é abrir `cppm-0.4.2-windows-x86_64-setup.exe` e seguir o
@@ -69,8 +139,9 @@ cargo build --release --locked
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
-O ZIP Windows usa um executável GNU x64 com validação parcial no Wine. O
-assistente é compilado com MSVC no CI; `windows-installer.yml` testa sua instalação
+O workflow de releases compila o ZIP e o assistente Windows com MSVC.
+Pacotes GNU x64 também podem ser gerados localmente, com validação parcial no Wine.
+`windows-installer.yml` testa a instalação do assistente
 e a compilação C++ nativa pelo PowerShell. Os testes adicionais de integração
 com bibliotecas ficam no workflow `ci.yml`.
 
@@ -107,9 +178,10 @@ São gerados um `.zip` no Windows ou `.tar.gz` no Linux, acompanhados do SHA-256
 Para empacotar uma compilação cruzada da CLI, use por exemplo
 `python scripts/package.py --target x86_64-pc-windows-gnu` depois do build com
 o mesmo `--target`. Cada pacote contém um `release.json` com o target utilizado.
-O workflow `ci.yml` compila, testa e empacota em runners Linux e Windows.
-Os artefatos ficam no próprio workflow. Não há publicação automática de releases,
-instalador remoto ou pacote winget/Scoop ainda.
+O workflow `ci.yml` compila, testa e empacota em runners Linux e Windows;
+esses artefatos ficam no próprio workflow. O workflow `release.yml` publica
+pacotes e checksums no GitHub Releases quando recebe uma tag de versão.
+Ainda não há pacote winget/Scoop.
 
 Para gerar o assistente Windows, instale NSIS 3 e execute:
 
@@ -124,6 +196,44 @@ terminal novo, build C++ real e desinstalação em um runner Windows. Os downloa
 do uv são fixados por versão e SHA-256; o bootstrapper MSVC só é executado com
 assinatura Authenticode válida da Microsoft. Veja as versões de ferramentas
 em `scripts/windows-tools.json`.
+
+## Publicar uma atualização
+
+1. Atualize `package.version` no `Cargo.toml` e o registro do cppm no `Cargo.lock`.
+   Use uma versão estável `X.Y.Z` maior que a anterior.
+2. Envie o commit com o código e os workflows para o GitHub.
+3. Crie e envie uma tag que corresponda exatamente à versão, por exemplo:
+
+```sh
+git tag v0.4.2
+git push origin v0.4.2
+```
+
+O workflow `.github/workflows/release.yml` valida a tag contra o `Cargo.toml`,
+compila e testa Linux x64, Linux ARM64 e Windows x64, e gera os pacotes e o
+assistente Windows. Só após todos os builds passarem, publica a release com
+notas automáticas, checksums SHA-256 e o arquivo `VERSION`, marcando-a como
+`latest`. Durante os uploads a release permanece em rascunho, evitando que
+instaladores enxerguem uma versão incompleta. O token automático do Actions
+recebe `contents: write` somente no job de publicação; não é preciso criar um PAT.
+Uma release já publicada não é sobrescrita ao repetir o workflow.
+
+Um push comum de código não dispara avisos: é necessário publicar a release
+com a tag. As instalações que já incluem o módulo de atualização descobrem
+a nova versão na próxima consulta automática. Quem usa uma versão anterior
+sem esse módulo precisa instalar uma vez pelo script ou pelo novo pacote.
+
+Para validar o fluxo sem rede:
+
+```sh
+cargo test --locked
+python scripts/test-update.py --binary target/debug/cppm
+```
+
+No Windows, após `cargo build --release --locked`, execute
+`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-bootstrap.ps1`.
+Os testes substituem apenas o transporte por arquivos locais e verificam
+instalação, checksums, versão, atualização e preservação da instalação em falhas.
 
 ## Pacotes C++
 

@@ -27,6 +27,8 @@ if ($RemoveTools -and $toolsDir -and (Test-Path -LiteralPath $toolsDir)) {
 if (Test-Path -LiteralPath $binary -PathType Leaf) {
     Remove-Item -LiteralPath $binary
 }
+$previous = Join-Path $InstallDir 'cppm.exe.previous'
+if (Test-Path -LiteralPath $previous -PathType Leaf) { Remove-Item -LiteralPath $previous }
 if ($ownedEntries.Count -gt 0) {
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
     [Environment]::SetEnvironmentVariable('Path', (Remove-CppmPathEntries $userPath $ownedEntries), 'User')

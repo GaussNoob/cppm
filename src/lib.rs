@@ -18,6 +18,7 @@ mod storage;
 mod store;
 mod templates;
 mod ui;
+mod update;
 mod watch;
 
 pub use cli::Cli;

@@ -62,6 +62,39 @@ instalação, PATH, build C++ com MSVC e desinstalação. `cppm` é o nome provi
 
 ## Instalação
 
+Instale a CLI diretamente pelo GitHub, sem Rust:
+
+```sh
+# Linux x64 ou ARM64
+curl -fsSL https://raw.githubusercontent.com/GaussNoob/cppm/main/scripts/bootstrap.sh -o install-cppm.sh
+sh install-cppm.sh
+```
+
+```powershell
+# Windows x64 (PowerShell)
+Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/GaussNoob/cppm/main/scripts/bootstrap.ps1 -OutFile install-cppm.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-cppm.ps1
+```
+
+Os scripts baixam a última release e verificam o SHA-256 antes de instalar.
+No Windows, acrescente `-WithDependencies` para preparar também as ferramentas
+C++ e WebAssembly. Abra um terminal novo após a instalação. No Linux, inclua
+`~/.local/bin` no PATH se necessário; no fish: `fish_add_path ~/.local/bin`.
+
+O cppm consulta novas versões em segundo plano e avisa ao usar a CLI ou a
+interface interativa. Para consultar imediatamente ou aplicar a atualização:
+
+```sh
+cppm update --check
+cppm update
+```
+
+O aviso usa cache de seis horas; a atualização é aplicada pelo comando acima.
+`--offline`, `CPPM_NO_UPDATE_CHECK=1` e ambientes de CI desativam a consulta
+automática. Veja [instalação, atualização e publicação](docs/installation.md).
+Os scripts remotos e a consulta de versões passam a funcionar após a primeira
+release publicada pelo novo workflow `release.yml`, que inclui o arquivo `VERSION`.
+
 Baixe os pacotes na [última release](https://github.com/GaussNoob/cppm/releases/latest).
 No Windows, execute `cppm-0.4.2-windows-x86_64-setup.exe`: o assistente instala a
 CLI, Python, Conan, CMake, Ninja, Emscripten e seu Node.js privado, prepara MSVC e Windows SDK se faltarem e
@@ -154,6 +187,8 @@ diagnósticos. A aba Comandos oferece a criação de um projeto na pasta atual.
 | Comando                     | Comportamento                                            |
 | --------------------------- | -------------------------------------------------------- |
 | `cppm ui`                  | Abre o explorador interativo de bibliotecas, projeto e comandos |
+| `cppm update --check`      | Consulta a última versão estável sem instalar |
+| `cppm update`              | Atualiza o próprio cppm com verificação SHA-256 |
 | `cppm init [pasta]`         | Cria manifesto, fonte inicial, CMake e teste de execução |
 | `cppm add fmt`              | Adiciona a versão padrão do catálogo e instala           |
 | `cppm add fmt@11.0.2`       | Adiciona uma versão exata                                |

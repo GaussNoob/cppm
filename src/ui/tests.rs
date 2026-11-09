@@ -238,6 +238,8 @@ fn catalog_filters_distinguish_cppm_defaults_and_project_membership() {
 #[test]
 fn views_render_at_wide_compact_and_minimum_sizes_with_empty_results_and_modals() {
     let (_temp, mut app) = project_app();
+    app.update_notice =
+        Some("Atualização disponível: 0.4.2 → 0.4.3. Execute `cppm update`.".into());
     for (width, height) in [(140, 42), (100, 32), (80, 24), (76, 26), (52, 19), (20, 8)] {
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
         for tab in 0..4 {
@@ -255,6 +257,12 @@ fn views_render_at_wide_compact_and_minimum_sizes_with_empty_results_and_modals(
                     .map(|cell| cell.symbol())
                     .collect::<String>();
                 assert!(screen.contains("cppm"));
+                if width >= 100 {
+                    assert!(
+                        screen.contains("cppm update"),
+                        "update notice must remain visible on every tab"
+                    );
+                }
                 if width >= 76 && height >= 24 && query.is_empty() && tab == 0 {
                     assert!(
                         screen.contains("Explorar bibliotecas"),
