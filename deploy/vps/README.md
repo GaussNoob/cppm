@@ -22,3 +22,6 @@ confiaveis e estes dois hosts rejeitam conexoes fora da rede Cloudflare.
 
 DNS e regras da Cloudflare sao gerenciados separadamente: os limites na VPS nao
 substituem a mitigacao de DDoS na borda. Uma falha de CI preserva a versao publicada.
+
+O CI tambem verifica as dependencias de producao e abre o build no Chromium,
+conferindo carregamento de assets, erros JavaScript e largura em desktop e celular.

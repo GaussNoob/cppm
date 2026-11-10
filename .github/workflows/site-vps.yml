@@ -31,7 +31,20 @@ jobs:
       - name: Verificar codigo
         run: |
           npm run check
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
+      - name: Verificar site no navegador
+        run: |
+          set -euo pipefail
+          npx playwright install --with-deps chromium
+          python3 -m http.server 3045 --bind 127.0.0.1 --directory out > "$RUNNER_TEMP/site-preview.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          for attempt in {1..20}; do
+            if curl -fsS http://127.0.0.1:3045/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/smoke-vps.mjs
       - name: Preparar pacote estatico
         run: |
           set -euo pipefail

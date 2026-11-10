@@ -53,7 +53,7 @@ mv -Tf "$base/current.next" "$base/current"
 switched=1
 healthy=0
 for attempt in {1..5}; do
-  if [[ $(curl -fsS --max-time 10 -H 'Host: cppm.gaussnoob.com.br' http://127.0.0.1/RELEASE) == "$release" ]] && curl -fsS --max-time 10 -H 'Host: cppm.gaussnoob.com.br' http://127.0.0.1/ >/dev/null; then healthy=1; break; fi
+  if [[ $(curl -fsS --max-time 10 -H 'Host: cppm.gaussnoob.com.br' http://127.0.0.1/RELEASE) == "$release" ]] && curl -fsS --max-time 10 --resolve cppm.gaussnoob.com.br:443:127.0.0.1 https://cppm.gaussnoob.com.br/ >/dev/null; then healthy=1; break; fi
   sleep 1
 done
 (( healthy == 1 ))
