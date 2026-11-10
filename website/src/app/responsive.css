@@ -1,0 +1,236 @@
+/* Responsive layout, loaded after the base styles. */
+@media (max-width: 1180px) {
+  .container { width: calc(100% - 72px); }
+  .hero-grid { gap: 34px; padding-top: 75px; padding-bottom: 75px; }
+  h1 { font-size: 7vw; letter-spacing: -5px; }
+  .hero-actions { gap: 16px; }
+  .hero-actions .button { padding-inline: 18px; font-size: 12px; gap: 15px; }
+  .hero-actions .button-quiet { padding-inline: 0; gap: 8px; }
+  .hero-description { font-size: 15px; }
+  .hero-footnote { font-size: 9px; gap: 9px; }
+  .terminal-body { font-size: 10px; padding-inline: 17px; }
+  .terminal-tabs { gap: 16px; }
+  .terminal-tabs > button { font-size: 9px; }
+  .terminal-result { margin-inline: 8px; padding: 12px 10px; }
+  .terminal-result > div > span { font-size: 10px; }
+  .terminal-result small { font-size: 8px; }
+  .terminal-result-badge { font-size: 6px; gap: 1px; }
+  .ownership-grid, .download-layout { gap: 65px; }
+  .docs-workspace { grid-template-columns: 220px 1fr; }
+  .doc-content { padding-inline: 30px; }
+  .workflow-step { padding-inline: 25px; }
+  .workflow-step h3 { font-size: 17px; }
+  .step-command { padding-left: 10px; gap: 7px; }
+  .step-command > code { font-size: 9px; }
+}
+
+@media (max-width: 960px) {
+  .container { width: calc(100% - 56px); }
+  .section-space { padding-block: 85px; }
+  .hero-grid { gap: 25px; padding-top: 60px; padding-bottom: 65px; }
+  h1 { letter-spacing: -4px; font-size: 7.1vw; }
+  .hero-pluses { letter-spacing: -7px; }
+  .hero-description { font-size: 13px; }
+  .hero-actions { gap: 10px; }
+  .hero-actions .button { font-size: 10px; min-height: 44px; padding-inline: 13px; gap: 12px; }
+  .hero-actions .button-quiet { padding-inline: 0; gap: 6px; }
+  .hero-footnote { font-size: 8px; }
+  .hero-footnote .footnote-divider, .hero-footnote > span:last-child { display: none; }
+  .release-link { font-size: 8px; gap: 8px; }
+  .terminal-coordinate { font-size: 7px; }
+  .terminal-titlebar { padding-inline: 12px; }
+  .terminal-tabs { gap: 14px; padding-inline: 12px; }
+  .terminal-tabs > button { font-size: 8px; gap: 5px; }
+  .terminal-tabs > button > svg { width: 12px; }
+  .terminal-body { font-size: 8px; padding-inline: 13px; height: 260px; }
+  .terminal-comment { font-size: 8px; }
+  .terminal-output { font-size: 8px; padding-left: 17px; }
+  .terminal-command { gap: 9px; }
+  .terminal-result-badge { display: none; }
+  .terminal-result { margin-inline: 5px; gap: 9px; }
+  .terminal-result-icon { width: 27px; height: 27px; }
+  .hero-bottom-note { font-size: 9px; }
+  .stack-inner { gap: 15px; min-height: 110px; }
+  .stack-caption { font-size: 12px; }
+  .stack-item { gap: 8px; }
+  .stack-item > span { font-size: 16px; }
+  .stack-item > svg { width: 21px; }
+  .stack-item small { font-size: 10px; }
+  .section-heading > p { font-size: 12px; }
+  .workflow-step { padding-inline: 20px; }
+  .workflow-step-top { margin-bottom: 30px; }
+  .workflow-step h3 { font-size: 16px; }
+  .workflow-step p { font-size: 11px; min-height: 85px; }
+  .step-command > code { font-size: 8px; }
+  .step-command { padding-left: 8px; gap: 6px; }
+  .step-command .copy-button { min-width: 24px; }
+  .workflow-bottom > span, .workflow-bottom a { font-size: 10px; }
+  .ownership-grid, .download-layout { gap: 40px; }
+  .ownership-copy h2 { font-size: 40px; letter-spacing: -2px; }
+  .ownership-copy > p { font-size: 12px; }
+  .ownership-code-label { font-size: 6px; }
+  .ownership-code-label > span:last-child { display: none; }
+  .ownership-code .code-block pre { font-size: 8px; padding-inline: 14px; }
+  .ownership-details { gap: 26px; }
+  .ownership-details > div { gap: 10px; }
+  .ownership-details p { font-size: 9px; }
+  .docs-workspace { grid-template-columns: 190px 1fr; }
+  .docs-sidebar { padding-inline: 10px; }
+  .docs-tabs > button { gap: 8px; padding-inline: 10px; font-size: 10px; }
+  .docs-sidebar-bottom { padding-inline: 9px; }
+  .docs-sidebar-bottom > a { font-size: 8px; }
+  .doc-content { padding-inline: 25px; }
+  .code-block pre { font-size: 10px; padding-inline: 16px; }
+  .doc-paragraphs p { font-size: 10px; }
+  .download-intro h2 { font-size: 48px; }
+  .download-panel-top { padding-inline: 18px; }
+  .platform-tabs { padding-inline: 18px; }
+  .download-panel-body { padding-inline: 18px; }
+  .download-panel-footer { padding-inline: 18px; }
+  .download-package h3 { font-size: 15px; }
+  .requirements-bar > p { gap: 10px; font-size: 9px; }
+}
+
+@media (max-width: 760px) {
+  html { scroll-padding-top: 90px; }
+  .container { width: calc(100% - 40px); }
+  .section-space { padding-block: 70px; }
+  h2 { font-size: 35px; letter-spacing: -1.7px; }
+  .eyebrow { font-size: 8px; gap: 9px; letter-spacing: 1px; }
+  .section-index { font-size: 9px; }
+  .section-heading { display: block; margin-bottom: 35px; }
+  .section-heading .eyebrow { margin-bottom: 20px; }
+  .section-heading > p { margin-top: 22px; font-size: 12px; }
+  .desktop-break { display: none; }
+  .brand { font-size: 26px; gap: 7px; }
+  .brand-symbol { width: 26px; height: 26px; }
+  .hero-grid { grid-template-columns: 1fr; padding-top: 48px; padding-bottom: 38px; gap: 40px; }
+  .hero-copy { max-width: 540px; }
+  .release-link { font-size: 9px; gap: 9px; }
+  h1 { font-size: clamp(53px, 12.5vw, 80px); letter-spacing: -3.8px; margin-top: 26px; }
+  .hero-pluses { letter-spacing: -6px; padding-right: 5px; }
+  .hero-description { font-size: 15px; line-height: 1.8; margin-top: 23px; }
+  .hero-description-break { display: none; }
+  .hero-actions { margin-top: 28px; gap: 22px; }
+  .hero-actions .button { font-size: 12px; min-height: 48px; padding-inline: 18px; gap: 18px; }
+  .hero-actions .button-quiet { padding-inline: 0; gap: 8px; font-size: 11px; }
+  .hero-footnote { font-size: 9px; margin-top: 21px; }
+  .hero-footnote .footnote-divider, .hero-footnote > span:last-child { display: flex; }
+  .hero-visual { margin-top: 0; width: 100%; max-width: 550px; justify-self: center; }
+  .terminal-scene { padding-inline: 0; }
+  .terminal-coordinate { font-size: 7px; margin-bottom: 12px; }
+  .terminal-titlebar { padding-inline: 15px; height: 44px; }
+  .terminal-tabs { padding-inline: 16px; gap: 23px; }
+  .terminal-tabs > button { font-size: 9px; height: 42px; gap: 7px; }
+  .terminal-tabs > button > svg { width: 13px; }
+  .terminal-body { height: 276px; padding: 22px 19px 16px; font-size: 10px; }
+  .terminal-comment { font-size: 9px; }
+  .terminal-command { gap: 10px; }
+  .terminal-output { font-size: 9px; padding-left: 20px; }
+  .terminal-lines { gap: 14px; }
+  .terminal-result { margin: 12px 8px 0; padding: 12px; }
+  .terminal-result > div > span { font-size: 11px; }
+  .terminal-result small { font-size: 9px; }
+  .terminal-result-badge { display: flex; font-size: 6px; }
+  .scene-cross { display: none; }
+  .hero-bottom { padding-bottom: 24px; }
+  .hero-bottom-note { display: none; }
+  .explore-link { font-size: 11px; }
+  .stack-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 20px; padding-block: 25px 29px; }
+  .stack-caption { grid-column: 1 / -1; font-size: 13px; display: flex; gap: 4px; }
+  .stack-caption > br { display: none; }
+  .stack-item { gap: 12px; }
+  .stack-item > span { font-size: 19px; }
+  .stack-item > svg { width: 24px; }
+  .stack-item small { font-size: 11px; }
+  .workflow-steps { grid-template-columns: 1fr; }
+  .workflow-step, .workflow-step:first-child, .workflow-step:last-child { padding: 25px 0; border-right: 0; border-bottom: 1px solid var(--line); }
+  .workflow-step:last-child { border-bottom: 0; }
+  .workflow-step-top { margin-bottom: 22px; }
+  .workflow-step h3 { font-size: 20px; margin-bottom: 12px; }
+  .workflow-step p { max-width: 460px; min-height: 0; font-size: 12px; }
+  .step-command { margin-top: 20px; padding: 11px 12px 11px 15px; gap: 12px; }
+  .step-command > code { font-size: 11px; }
+  .workflow-bottom { align-items: flex-start; flex-direction: column; padding-top: 22px; gap: 16px; }
+  .workflow-bottom > span { font-size: 10px; }
+  .workflow-bottom a { font-size: 11px; padding-left: 27px; }
+  .ownership-section { padding-block: 65px 37px; }
+  .ownership-grid { grid-template-columns: 1fr; gap: 40px; }
+  .ownership-copy h2 { font-size: 43px; letter-spacing: -2px; margin-top: 22px; }
+  .ownership-copy > p { font-size: 12px; max-width: 450px; margin-top: 23px; }
+  .ownership-link { margin-top: 23px; font-size: 11px; }
+  .ownership-code-label { font-size: 7px; }
+  .ownership-code-label > span:last-child { display: block; }
+  .ownership-code .code-block pre { font-size: 10px; padding-inline: 18px; }
+  .ownership-code { max-width: 570px; width: 100%; }
+  .ownership-code-caption { font-size: 8px; }
+  .ownership-details { grid-template-columns: 1fr; gap: 25px; margin-top: 37px; padding-top: 30px; }
+  .ownership-details > div { gap: 15px; }
+  .ownership-details h3 { font-size: 13px; margin-bottom: 6px; }
+  .ownership-details p { font-size: 11px; max-width: 400px; }
+  .documentation-section .section-heading { margin-bottom: 32px; }
+  .docs-workspace { display: flex; flex-direction: column; min-height: 0; }
+  .docs-sidebar { border-right: 0; border-bottom: 1px solid #39492c; padding: 16px; gap: 12px; }
+  .docs-sidebar-title { padding: 0; font-size: 10px; }
+  .docs-tabs, .docs-sidebar-bottom { display: none; }
+  .docs-mobile-select { display: flex; flex-direction: column; gap: 8px; }
+  .docs-mobile-select > span { font: 8px var(--mono); color: #b2c29f; }
+  .docs-mobile-select select { background: #26331d; border: 1px solid #4d623a; color: #d4e5c4; padding: 12px 10px; border-radius: 4px; font-size: 12px; width: 100%; }
+  .doc-content { padding: 23px 18px 20px; }
+  .doc-breadcrumb { padding-bottom: 25px; font-size: 8px; }
+  .doc-article h3 { font-size: 26px; }
+  .doc-description { font-size: 12px; line-height: 1.8; }
+  .code-block pre { font-size: 10px; padding-inline: 14px; }
+  .doc-paragraphs p { font-size: 11px; }
+  .doc-note { padding: 13px; gap: 9px; }
+  .doc-note p { font-size: 10px; }
+  .doc-footer { gap: 13px; align-items: flex-start; padding-top: 20px; }
+  .doc-footer > a { font-size: 9px; }
+  .doc-footer > button { font-size: 10px; padding: 0; }
+  .download-layout { grid-template-columns: 1fr; gap: 37px; }
+  .download-intro h2 { font-size: 51px; letter-spacing: -2.7px; margin-top: 23px; }
+  .download-intro > p { margin-top: 22px; font-size: 13px; }
+  .download-license { margin-top: 21px; font-size: 9px; }
+  .download-panel { max-width: 570px; width: 100%; }
+  .download-panel-top { padding: 18px 20px; }
+  .platform-tabs { padding-inline: 20px; }
+  .download-panel-body { padding: 24px 20px; }
+  .download-package h3 { font-size: 17px; }
+  .download-panel-footer { padding: 17px 20px; }
+  .requirements-bar { margin-top: 37px; flex-direction: column; align-items: flex-start; gap: 18px; padding-top: 25px; }
+  .requirements-bar > p { font-size: 10px; gap: 11px; row-gap: 7px; }
+  .download-section.section-space { padding-bottom: 35px; }
+  .footer-top { gap: 30px; flex-wrap: wrap; }
+  .footer-links { order: 3; margin: 0; width: 100%; gap: 20px; padding-top: 0; }
+  .footer-top .back-to-top { margin-left: auto; }
+  .footer-links a { font-size: 10px; }
+  .footer-top > div > p { font-size: 11px; margin-top: 15px; }
+  .footer-bottom { margin-top: 30px; padding-top: 19px; line-height: 1.8; }
+  .search-dialog { margin-top: 12vh; }
+  .search-input-wrap { padding-inline: 14px; gap: 9px; }
+  .search-input-wrap > input { font-size: 12px; }
+  .search-dialog-footer { font-size: 8px; padding-inline: 16px; }
+}
+
+@media (max-width: 380px) {
+  .container { width: calc(100% - 32px); }
+  h1 { font-size: 13.2vw; letter-spacing: -3px; }
+  .hero-actions { gap: 15px; }
+  .hero-actions .button { font-size: 11px; padding-inline: 15px; gap: 12px; }
+  .hero-actions .button-quiet { padding: 0; font-size: 10px; gap: 6px; }
+  .hero-footnote { gap: 8px; font-size: 8px; }
+  .terminal-tabs { gap: 17px; padding-inline: 13px; }
+  .terminal-tabs > button { font-size: 8px; gap: 5px; }
+  .terminal-body { font-size: 8px; padding-inline: 13px; }
+  .terminal-output { font-size: 8px; }
+  .terminal-result-badge { display: none; }
+  .terminal-result > div > span { font-size: 10px; }
+  .terminal-result small { font-size: 8px; }
+  .doc-content { padding-inline: 14px; }
+  .doc-footer { flex-direction: column; }
+  .download-package h3 { font-size: 15px; }
+  .download-panel-body { padding-inline: 17px; }
+  .download-metadata { font-size: 7px; }
+  .footer-links { gap: 15px; }
+  .footer-links a { font-size: 9px; }
+}

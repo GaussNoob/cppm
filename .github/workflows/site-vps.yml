@@ -1,0 +1,62 @@
+name: Publicar site na VPS
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cppm-vps-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && vars.VPS_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: website
+    env:
+      NEXT_PUBLIC_SITE_URL: https://cppm.gaussnoob.com.br
+      NEXT_TELEMETRY_DISABLED: '1'
+      BUILD_ID: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - name: Verificar codigo
+        run: |
+          npm run check
+      - run: npm run build
+      - name: Preparar pacote estatico
+        run: |
+          set -euo pipefail
+          test -s out/index.html
+          printf '%s\n' "$BUILD_ID" > out/RELEASE
+          tar -czf site.tar.gz -C out .
+          sha256sum site.tar.gz > site.tar.gz.sha256
+      - name: Enviar e ativar versao
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          : "${VPS_HOST:?}" "${VPS_PORT:?}" "${VPS_USER:?}" "${VPS_SSH_KEY:?}" "${VPS_KNOWN_HOSTS:?}"
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9.-]+$ && "$VPS_PORT" =~ ^[0-9]+$ && "$VPS_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          umask 077
+          mkdir -p "$RUNNER_TEMP/site-ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$RUNNER_TEMP/site-ssh/key"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$RUNNER_TEMP/site-ssh/known_hosts"
+          trap 'rm -rf "$RUNNER_TEMP/site-ssh"' EXIT
+          opts=(-i "$RUNNER_TEMP/site-ssh/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/site-ssh/known_hosts" -o ConnectTimeout=20)
+          target="$VPS_USER@$VPS_HOST"
+          ssh "${opts[@]}" -p "$VPS_PORT" "$target" "install -d -m 750 /srv/cppm/incoming/$BUILD_ID"
+          scp "${opts[@]}" -P "$VPS_PORT" site.tar.gz site.tar.gz.sha256 "$target:/srv/cppm/incoming/$BUILD_ID/"
+          ssh "${opts[@]}" -p "$VPS_PORT" "$target" "/usr/local/bin/cppm-deploy $BUILD_ID"

@@ -1,0 +1,141 @@
+/* Type and terminal interactions. */
+.hero-grid { padding-top: 189px; padding-bottom: 93px; gap: 62px; }
+h1 { font-size: clamp(60px, 6.65vw, 96px); letter-spacing: -5.8px; line-height: 1.05; margin-top: 31px; }
+.hero-line { display: block; overflow: hidden; padding-bottom: .1em; margin-bottom: -.1em; color: var(--text); }
+.hero-line > span { display: block; animation: type-arrive 1.1s var(--ease) both; animation-delay: .08s; }
+.hero-line:last-child { color: var(--accent); }
+.hero-line:last-child > span { animation-delay: .2s; }
+.hero-pluses { letter-spacing: -7px; padding-right: 5px; }
+.hero-pluses > span { display: inline-block; animation: plus-settle 1.1s var(--ease) both; animation-delay: .38s; transform-origin: center; }
+.hero-pluses > span:last-child { animation-delay: .5s; }
+.hero-description { color: #aeb7a5; font-size: 17px; }
+.hero-footnote { color: #9ba98e; font-size: 10px; }
+.hero-visual { margin-top: 15px; }
+.hero-visual::before { inset: -95px -90px -90px -50px; background-size: 43px 43px; animation: grid-breathe 8s ease-in-out infinite alternate; }
+.motion-surface { perspective: 1100px; }
+.motion-surface-inner { transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); transition: transform .55s var(--ease); transform-style: preserve-3d; }
+.terminal-window { border-color: #4c60399c; box-shadow: 0 27px 60px -20px #000a, 0 0 0 5px #c6e89b03; }
+.terminal-window::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(400px circle at var(--spotlight-x, 65%) var(--spotlight-y, 20%), #cbff9310, transparent 70%); opacity: 0; transition: opacity .6s; }
+.motion-surface:hover .terminal-window::after { opacity: 1; }
+.terminal-coordinate { font-size: 9px; letter-spacing: 1px; }
+.terminal-tabs { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; padding-inline: 10px; }
+.terminal-tabs > button { position: relative; z-index: 1; justify-content: center; font-size: 11px; height: 47px; }
+.terminal-tabs > button::before { content: ""; position: absolute; inset: 6px 0; border-radius: 5px; background: #d5f7790a; opacity: 0; transition: opacity .25s; z-index: -1; }
+.terminal-tabs > button[aria-selected="true"]::before { opacity: 1; }
+.terminal-tabs > button::after { inset-inline: 15px; height: 1px; }
+.terminal-step.is-shown .terminal-output { animation: output-arrive .35s var(--ease) .12s both; }
+.terminal-body { font-size: 12px; height: 300px; }
+.terminal-comment { font-size: 10px; }
+.terminal-output { font-size: 10px; }
+.terminal-result { transition: opacity .5s, transform .7s var(--ease), border-color .4s, box-shadow .4s; }
+.terminal-result:hover { border-color: #5a7840; box-shadow: 0 5px 20px #0002; }
+.terminal-result > div > span { font-size: 12px; }
+.terminal-result small { font-size: 10px; }
+.terminal-status { position: relative; }
+.terminal-progress { position: absolute; inset: auto 0 0; height: 1px; background: #d5f779a1; transform-origin: left; transition: transform .6s var(--ease); pointer-events: none; }
+.terminal-status.is-running .status-dot { animation: status-pulse 1.2s ease-in-out infinite; background: #a3c479; }
+.terminal-status.is-complete .status-dot { animation: status-resolve .6s ease-out; }
+
+/* Surfaces respond without turning the page into an obstacle course. */
+.workflow-step { position: relative; }
+.workflow-step::before { content: ""; position: absolute; top: -1px; inset-inline: 0; height: 1px; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform .6s var(--ease); }
+.workflow-step:hover::before { transform: scaleX(1); }
+.workflow-step-top > svg { transition: transform .45s var(--ease), color .3s; }
+.workflow-step:hover .workflow-step-top > svg { transform: translateY(-4px) rotate(-5deg); color: var(--accent); }
+.workflow-step h3 { font-size: 20px; }
+.workflow-step p { font-size: 13px; line-height: 1.85; min-height: 74px; }
+.step-command { transition: border-color .4s, background .4s; }
+.workflow-step:hover .step-command { border-color: #536c3c; background: #232e1b; }
+.step-command > code { font-size: 11px; }
+.workflow-bottom > span, .workflow-bottom a { font-size: 12px; }
+.ownership-section { padding-top: 100px; }
+.ownership-copy h2 { font-size: clamp(42px, 4.2vw, 58px); }
+.ownership-copy > p { font-size: 14px; line-height: 1.85; max-width: 375px; }
+.ownership-link { font-size: 12px; }
+.ownership-code .code-block pre { font-size: 11px; }
+.ownership-code.is-visible .code-line { animation: code-arrive .5s var(--ease) both; animation-delay: calc(var(--line) * 35ms); }
+.ownership-details h3 { font-size: 14px; }
+.ownership-details p { font-size: 12px; line-height: 1.8; }
+.ownership-details > div > svg { transition: transform .4s var(--ease); }
+.ownership-details > div:hover > svg { transform: translateY(-3px); }
+.docs-workspace { grid-template-columns: 245px 1fr; }
+.docs-sidebar-title { font-size: 12px; }
+.docs-tabs > button { font-size: 12px; padding-block: 14px; }
+.doc-content { padding: 29px 39px 25px; }
+.doc-article h3 { font-size: 31px; }
+.doc-description { font-size: 14px; line-height: 1.85; }
+.doc-paragraphs p { font-size: 13px; line-height: 1.85; }
+.doc-note p { font-size: 11px; }
+.code-block pre { font-size: 12px; }
+.code-block-header { font-size: 9px; height: 39px; }
+.doc-label { font-size: 9px; }
+.doc-footer > a { font-size: 10px; }
+.doc-footer > button { font-size: 11px; }
+.download-panel { transition: border-color .4s, box-shadow .5s; }
+.download-panel:hover { border-color: #769a4e; box-shadow: 0 15px 55px -25px #0007; }
+.download-intro > p { font-size: 14px; }
+.download-description { font-size: 12px; }
+.download-panel-top > span:first-child { font-size: 11px; }
+.download-package h3 { font-size: 19px; }
+.download-main-button { font-size: 13px; height: 51px; }
+.download-panel-footer > span, .download-panel-footer > button { font-size: 10px; }
+.requirements-bar > p { font-size: 11px; }
+.footer-top > div > p { font-size: 12px; }
+.footer-links a { font-size: 12px; }
+
+@keyframes type-arrive { from { transform: translateY(112%) rotate(2deg); opacity: .4; } to { transform: translateY(0) rotate(0); opacity: 1; } }
+@keyframes plus-settle { from { transform: translateY(.25em); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes code-arrive { from { opacity: 0; transform: translateX(7px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes grid-breathe { from { opacity: .45; transform: translateY(0); } to { opacity: 1; transform: translateY(10px); } }
+@keyframes status-pulse { 50% { opacity: .3; box-shadow: 0 0 0 3px #d5f7790d; } }
+@keyframes status-resolve { 0% { box-shadow: 0 0 0 0 #d5f77950; } 100% { box-shadow: 0 0 0 8px #d5f77900; } }
+@keyframes output-arrive { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 1180px) {
+  .hero-grid { padding-top: 170px; }
+  .terminal-body { font-size: 10px; }
+  .hero-line { font-size: inherit; }
+  .workflow-step p { font-size: 12px; min-height: 80px; }
+  .ownership-details p { font-size: 11px; }
+}
+
+@media (max-width: 960px) {
+  .hero-grid { padding-top: 160px; }
+  .terminal-tabs > button { font-size: 8px; }
+  .terminal-body { font-size: 8px; height: 265px; }
+  .terminal-output { font-size: 8px; }
+  .terminal-result > div > span { font-size: 10px; }
+  .terminal-result small { font-size: 8px; }
+}
+
+@media (max-width: 760px) {
+  .hero-grid { padding-top: 127px; gap: 43px; }
+  h1 { font-size: clamp(53px, 12.7vw, 80px); letter-spacing: -3.8px; }
+  .hero-line { padding-bottom: .12em; margin-bottom: -.12em; }
+  .hero-description { font-size: 15px; }
+  .hero-pluses { padding-right: 4px; letter-spacing: -6px; }
+  .hero-footnote { font-size: 9px; }
+  .terminal-coordinate { font-size: 8px; }
+  .terminal-tabs { padding-inline: 10px; gap: 0; }
+  .terminal-tabs > button { font-size: 9px; }
+  .terminal-body { font-size: 10px; height: 280px; }
+  .terminal-output { font-size: 9px; }
+  .terminal-result > div > span { font-size: 11px; }
+  .terminal-result small { font-size: 9px; }
+  .workflow-step p { min-height: 0; font-size: 12px; }
+  .ownership-copy > p { font-size: 13px; }
+  .ownership-details p { font-size: 11px; }
+  .doc-description { font-size: 12px; }
+  .doc-paragraphs p { font-size: 12px; }
+  .doc-note p { font-size: 10px; }
+}
+
+@media (max-width: 380px) {
+  h1 { font-size: 13.2vw; letter-spacing: -3px; }
+  .hero-footnote { font-size: 8px; }
+  .terminal-tabs > button { font-size: 8px; }
+  .terminal-body { font-size: 8px; }
+  .terminal-output { font-size: 8px; }
+  .terminal-result > div > span { font-size: 10px; }
+  .terminal-result small { font-size: 8px; }
+}

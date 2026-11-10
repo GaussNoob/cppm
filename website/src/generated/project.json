@@ -1,0 +1,249 @@
+{
+  "version": "0.4.0",
+  "downloads": [
+    {
+      "platform": "linux",
+      "architecture": "x86_64",
+      "filename": "cppm-0.4.0-linux-x86_64.tar.gz",
+      "url": "/downloads/cppm-0.4.0-linux-x86_64.tar.gz",
+      "checksumUrl": "/downloads/cppm-0.4.0-linux-x86_64.tar.gz.sha256",
+      "sha256": "f8e73bed38f19dcc8bfdb15dae4bfa367b3956970c547197ed7db304e7d4cf6c",
+      "size": 1302633
+    },
+    {
+      "platform": "windows",
+      "architecture": "x86_64",
+      "filename": "cppm-0.4.0-windows-x86_64.zip",
+      "url": "/downloads/cppm-0.4.0-windows-x86_64.zip",
+      "checksumUrl": "/downloads/cppm-0.4.0-windows-x86_64.zip.sha256",
+      "sha256": "828abb8560a5b03f86dbb3200d3fd2499375017976507b79425f51779e93b3eb",
+      "size": 1380211
+    }
+  ],
+  "catalog": [
+    {
+      "name": "sqlite3",
+      "version": "3.54.0",
+      "cmakePackage": "SQLite3",
+      "target": "SQLite::SQLite3"
+    },
+    {
+      "name": "mariadb-connector-c",
+      "version": "3.4.8",
+      "cmakePackage": "mariadb-connector-c",
+      "target": "mariadb-connector-c::mariadb-connector-c"
+    },
+    {
+      "name": "libpq",
+      "version": "17.11",
+      "cmakePackage": "PostgreSQL",
+      "target": "PostgreSQL::PostgreSQL"
+    },
+    {
+      "name": "hiredis",
+      "version": "1.3.0",
+      "cmakePackage": "hiredis",
+      "target": "hiredis::hiredis_all_unofficial"
+    },
+    {
+      "name": "mongo-c-driver",
+      "version": "2.5.8",
+      "cmakePackage": "mongoc",
+      "target": "mongo::mongoc_static"
+    },
+    {
+      "name": "fmt",
+      "version": "11.0.2",
+      "cmakePackage": "fmt",
+      "target": "fmt::fmt"
+    },
+    {
+      "name": "spdlog",
+      "version": "1.15.0",
+      "cmakePackage": "spdlog",
+      "target": "spdlog::spdlog"
+    },
+    {
+      "name": "zlib",
+      "version": "1.3.1",
+      "cmakePackage": "ZLIB",
+      "target": "ZLIB::ZLIB"
+    },
+    {
+      "name": "nlohmann_json",
+      "version": "3.11.3",
+      "cmakePackage": "nlohmann_json",
+      "target": "nlohmann_json::nlohmann_json"
+    },
+    {
+      "name": "catch2",
+      "version": "3.7.1",
+      "cmakePackage": "Catch2",
+      "target": "Catch2::Catch2"
+    },
+    {
+      "name": "boost",
+      "version": "1.91.0",
+      "cmakePackage": "Boost",
+      "target": "boost::boost"
+    },
+    {
+      "name": "cpp-httplib",
+      "version": "0.62.0",
+      "cmakePackage": "httplib",
+      "target": "httplib::httplib"
+    },
+    {
+      "name": "asio",
+      "version": "1.38.2",
+      "cmakePackage": "asio",
+      "target": "asio::asio"
+    },
+    {
+      "name": "imgui",
+      "version": "1.92.9b",
+      "cmakePackage": "imgui",
+      "target": "imgui::imgui"
+    },
+    {
+      "name": "gtest",
+      "version": "1.18.0",
+      "cmakePackage": "GTest",
+      "target": "gtest::gtest"
+    },
+    {
+      "name": "qt",
+      "version": "6.12.0",
+      "cmakePackage": "Qt6",
+      "target": "qt::qt"
+    },
+    {
+      "name": "opencv",
+      "version": "4.14.0",
+      "cmakePackage": "OpenCV",
+      "target": "opencv::opencv"
+    },
+    {
+      "name": "eigen",
+      "version": "3.4.0",
+      "cmakePackage": "Eigen3",
+      "target": "Eigen3::Eigen"
+    },
+    {
+      "name": "protobuf",
+      "version": "7.36.2",
+      "cmakePackage": "protobuf",
+      "target": "protobuf::protobuf"
+    },
+    {
+      "name": "glm",
+      "version": "1.0.3",
+      "cmakePackage": "glm",
+      "target": "glm::glm"
+    },
+    {
+      "name": "onetbb",
+      "version": "2023.1.0",
+      "cmakePackage": "TBB",
+      "target": "TBB::tbb"
+    }
+  ],
+  "aliases": [
+    {
+      "name": "sqlite",
+      "package": "sqlite3"
+    },
+    {
+      "name": "mysql",
+      "package": "mariadb-connector-c"
+    },
+    {
+      "name": "mariadb",
+      "package": "mariadb-connector-c"
+    },
+    {
+      "name": "postgres",
+      "package": "libpq"
+    },
+    {
+      "name": "postgresql",
+      "package": "libpq"
+    },
+    {
+      "name": "postgress",
+      "package": "libpq"
+    },
+    {
+      "name": "redis",
+      "package": "hiredis"
+    },
+    {
+      "name": "mongo",
+      "package": "mongo-c-driver"
+    },
+    {
+      "name": "mongodb",
+      "package": "mongo-c-driver"
+    },
+    {
+      "name": "curl",
+      "package": "libcurl"
+    },
+    {
+      "name": "sdl2",
+      "package": "sdl"
+    },
+    {
+      "name": "sdl3",
+      "package": "sdl"
+    },
+    {
+      "name": "json",
+      "package": "nlohmann_json"
+    },
+    {
+      "name": "googletest",
+      "package": "gtest"
+    },
+    {
+      "name": "google-test",
+      "package": "gtest"
+    },
+    {
+      "name": "google_test",
+      "package": "gtest"
+    },
+    {
+      "name": "httplib",
+      "package": "cpp-httplib"
+    },
+    {
+      "name": "dear-imgui",
+      "package": "imgui"
+    },
+    {
+      "name": "dearimgui",
+      "package": "imgui"
+    },
+    {
+      "name": "qt6",
+      "package": "qt"
+    },
+    {
+      "name": "opencv4",
+      "package": "opencv"
+    },
+    {
+      "name": "protocol-buffers",
+      "package": "protobuf"
+    },
+    {
+      "name": "tbb",
+      "package": "onetbb"
+    },
+    {
+      "name": "one-tbb",
+      "package": "onetbb"
+    }
+  ]
+}

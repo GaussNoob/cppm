@@ -2,7 +2,6 @@
 /.venv/
 /.qa/
 /dist/
-/website/
 __pycache__/
 .env
 .env.*

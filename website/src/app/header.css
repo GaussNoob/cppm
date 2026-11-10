@@ -1,0 +1,82 @@
+/* Navigation has one layout at each breakpoint, without positioned link groups. */
+.site-header {
+  position: fixed;
+  inset: 20px 0 auto;
+  z-index: 40;
+  pointer-events: none;
+  transition: top .35s var(--ease);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  width: min(1120px, calc(100% - 48px));
+  height: 72px;
+  margin-inline: auto;
+  padding: 10px 12px 10px 25px;
+  gap: 28px;
+  border: 1px solid #ffffff16;
+  border-radius: 40px;
+  background: #181c17ed;
+  box-shadow: 0 6px 30px #00000020, inset 0 1px 0 #ffffff04;
+  backdrop-filter: blur(20px);
+  pointer-events: auto;
+  transition: height .35s var(--ease), box-shadow .35s;
+}
+
+.site-header.is-scrolled { top: 12px; }
+.is-scrolled .header-inner { height: 64px; box-shadow: 0 8px 32px #0005; }
+.header-inner .brand { font-size: 27px; gap: 9px; }
+.header-inner .brand-symbol { width: 27px; height: 27px; }
+.desktop-nav { display: flex; align-items: center; gap: 30px; margin-left: auto; }
+.desktop-nav > a { position: relative; padding-block: 12px; color: #aeb4a6; font-size: 13px; white-space: nowrap; transition: color .2s; }
+.desktop-nav > a:hover, .desktop-nav > a[aria-current] { color: var(--text); }
+.desktop-nav > a::after { content: ""; position: absolute; bottom: 3px; left: 0; right: 0; height: 2px; border-radius: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform .25s var(--ease); }
+.desktop-nav > a[aria-current]::after { transform: scaleX(1); }
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.search-trigger { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #b8bfae; transition: color .2s, background .2s; }
+.search-trigger:hover { color: var(--text); background: #ffffff08; }
+.header-download { display: inline-flex; align-items: center; justify-content: center; gap: 18px; min-height: 46px; padding: 0 20px; border-radius: 26px; background: var(--accent); color: #19200e; font-size: 13px; font-weight: 600; white-space: nowrap; transition: background .2s, transform .25s var(--ease); }
+.header-download:hover { background: #e4ffa5; }
+.header-download > svg { transition: transform .25s var(--ease); }
+.header-download:hover > svg { transform: translateY(2px); }
+.download-label-mobile, .mobile-menu-button, .mobile-nav { display: none; }
+.mobile-nav { pointer-events: auto; }
+
+@media (max-width: 960px) {
+  .header-inner { gap: 20px; padding-left: 21px; }
+  .desktop-nav { gap: 20px; }
+  .desktop-nav > a { font-size: 12px; }
+  .header-download { gap: 12px; padding-inline: 17px; font-size: 12px; }
+}
+
+@media (max-width: 760px) {
+  .site-header { top: 12px; }
+  .site-header.is-scrolled { top: 8px; }
+  .header-inner { width: calc(100% - 28px); height: 66px; gap: 10px; padding: 9px 12px 9px 19px; }
+  .is-scrolled .header-inner { height: 62px; }
+  .header-inner .brand { font-size: 25px; gap: 7px; }
+  .header-inner .brand-symbol { width: 24px; height: 24px; }
+  .desktop-nav { display: none; }
+  .header-actions { margin-left: auto; gap: 4px; }
+  .search-trigger, .mobile-menu-button { width: 40px; height: 44px; }
+  .mobile-menu-button { display: grid; place-items: center; border-radius: 50%; color: #d4d9cb; }
+  .download-label-desktop { display: none; }
+  .download-label-mobile { display: inline; }
+  .header-download { min-height: 40px; padding-inline: 15px; gap: 10px; font-size: 12px; }
+  .header-download > svg { width: 14px; height: 14px; }
+  .mobile-nav { display: flex; flex-direction: column; width: calc(100% - 28px); margin: 8px auto 0; padding: 10px 22px 20px; border: 1px solid #ffffff18; border-radius: 22px; background: #181d16fa; backdrop-filter: blur(20px); box-shadow: 0 18px 40px #0005; animation: doc-enter .2s var(--ease); }
+  .mobile-nav > a { display: flex; align-items: center; justify-content: space-between; padding: 19px 0; border-bottom: 1px solid #ffffff0d; font-size: 16px; }
+  .mobile-nav > a > svg { color: #8f9a81; }
+  .mobile-nav-bottom { display: flex; align-items: center; gap: 8px; padding-top: 20px; color: #a4ae97; font: 10px var(--mono); }
+  .mobile-nav-bottom > span:last-child { margin-left: auto; }
+}
+
+@media (max-width: 380px) {
+  .header-inner { padding-inline: 14px 8px; }
+  .header-inner .brand { font-size: 23px; gap: 5px; }
+  .header-inner .brand-symbol { width: 21px; height: 21px; }
+  .header-actions { gap: 2px; }
+  .header-download { padding-inline: 12px; gap: 7px; font-size: 11px; }
+  .search-trigger, .mobile-menu-button { width: 34px; }
+}
