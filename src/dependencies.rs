@@ -1,5 +1,6 @@
 use crate::{
-    build, conan,
+    build,
+    conan::{self, versions},
     manifest::{Dependency, Manifest},
     packages,
     project::Project,
@@ -26,6 +27,7 @@ pub fn add(
     cmake_package: Option<String>,
     targets: Vec<String>,
     release: bool,
+    dev: bool,
     options: &InstallOptions,
 ) -> Result<Vec<String>> {
     ensure!(!options.frozen, "add cannot be used with --frozen-lockfile");
@@ -58,14 +60,25 @@ pub fn add(
             None => conan::resolve_version(&project, &name, release, options)?,
         };
         let dependency = packages::dependency(version, cmake_package.clone(), targets.clone())?;
-        project.manifest.dependencies.insert(name, dependency);
+        // Like `pnpm add -D`, adding to one section moves the package there.
+        let manifest = &mut project.manifest;
+        let (section, other) = if dev {
+            (&mut manifest.dev_dependencies, &mut manifest.dependencies)
+        } else {
+            (&mut manifest.dependencies, &mut manifest.dev_dependencies)
+        };
+        other.remove(&name);
+        section.insert(name, dependency);
     }
     let prepared = prepare(&project, release, options)?;
     project.save_manifest()?;
     prepared.commit(&project.root, false)?;
     build::refresh_editor(&project, release, options);
     if names.iter().any(|name| name == "sdl")
-        && let Some(sdl) = project.manifest.dependencies.get("sdl")
+        && let Some((_, sdl)) = project
+            .manifest
+            .requirements()
+            .find(|(name, _)| *name == "sdl")
     {
         let version = sdl.version();
         if version.starts_with("2.") {
@@ -88,10 +101,13 @@ pub fn remove(project: &Project, name: &str, options: &InstallOptions) -> Result
         "remove cannot be used with --frozen-lockfile"
     );
     let (mut project, _guard) = project.locked()?;
-    ensure!(
-        project.manifest.dependencies.remove(&name).is_some(),
-        "'{name}' is not a direct dependency"
-    );
+    let manifest = &mut project.manifest;
+    if manifest.dependencies.remove(&name).is_none()
+        && manifest.dev_dependencies.remove(&name).is_none()
+    {
+        let hint = crate::suggest::hint(&name, manifest.requirements().map(|(name, _)| name));
+        bail!("'{name}' is not a direct dependency{hint}");
+    }
     let prepared = prepare(&project, false, options)?;
     project.save_manifest()?;
     prepared.commit(&project.root, false)?;
@@ -99,12 +115,87 @@ pub fn remove(project: &Project, name: &str, options: &InstallOptions) -> Result
     Ok(())
 }
 
+pub struct Upgrade {
+    pub name: String,
+    pub from: String,
+    pub to: String,
+}
+
+/// Moves direct dependencies to newer versions and reinstalls them together.
+/// Without `latest`, a package stays within its current major version.
+pub fn upgrade(
+    project: &Project,
+    names: &[String],
+    latest: bool,
+    release: bool,
+    options: &InstallOptions,
+) -> Result<Vec<Upgrade>> {
+    ensure!(
+        !options.frozen,
+        "upgrade cannot be used with --frozen-lockfile"
+    );
+    let selected: Vec<String> = names
+        .iter()
+        .map(|name| packages::canonical_name(name))
+        .collect();
+    let (mut project, _guard) = project.locked()?;
+    for name in &selected {
+        if !project.manifest.requires(name) {
+            let hint =
+                crate::suggest::hint(name, project.manifest.requirements().map(|(name, _)| name));
+            bail!("'{name}' is not a direct dependency{hint}");
+        }
+    }
+    let upgrades: Vec<Upgrade> = versions::report(&project, options)?
+        .into_iter()
+        .filter(|entry| selected.is_empty() || selected.contains(&entry.name))
+        .filter_map(|entry| {
+            let to = if latest { entry.latest } else { entry.wanted }?;
+            Some(Upgrade {
+                name: entry.name,
+                from: entry.current,
+                to,
+            })
+        })
+        .collect();
+    if upgrades.is_empty() {
+        return Ok(upgrades);
+    }
+    for upgrade in &upgrades {
+        let manifest = &mut project.manifest;
+        let dependency = manifest
+            .dependencies
+            .get_mut(&upgrade.name)
+            .or_else(|| manifest.dev_dependencies.get_mut(&upgrade.name))
+            .expect("reported dependencies come from the manifest");
+        dependency.set_version(upgrade.to.clone());
+    }
+    let prepared = prepare(&project, release, options)?;
+    project.save_manifest()?;
+    prepared.commit(&project.root, false)?;
+    build::refresh_editor(&project, release, options);
+    Ok(upgrades)
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Lockfile {
     format: u32,
     dependencies: BTreeMap<String, Dependency>,
+    #[serde(
+        default,
+        rename = "dev-dependencies",
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
+    dev_dependencies: BTreeMap<String, Dependency>,
     conan: Value,
+}
+
+impl Lockfile {
+    fn matches(&self, manifest: &Manifest) -> bool {
+        self.dependencies == manifest.dependencies
+            && self.dev_dependencies == manifest.dev_dependencies
+    }
 }
 
 pub struct Installation {
@@ -124,9 +215,11 @@ impl Installation {
             bytes.push(b'\n');
             write_if_changed(&root.join("cppm.lock"), &bytes)?;
         }
+        let mut dependencies = self.lockfile.dependencies;
+        dependencies.extend(self.lockfile.dev_dependencies);
         if let Some(registration) = self.registration {
-            registration.commit(root, self.lockfile.dependencies)?;
-        } else if self.lockfile.dependencies.is_empty() {
+            registration.commit(root, dependencies)?;
+        } else if dependencies.is_empty() {
             store::clear_project(root)?;
         }
         Ok(())
@@ -151,12 +244,23 @@ fn read_lock(root: &Path) -> Result<Option<Lockfile>> {
 
 fn integration(manifest: &Manifest, graph: &Value) -> Result<String> {
     let mut source = format!(
-        "# Generated by cppm. Edit cppm.toml to change dependencies.\nset(CPPM_CXX_STANDARD {})\nadd_library(cppm_dependencies INTERFACE)\n",
+        "# Generated by cppm. Edit cppm.toml to change dependencies.\nset(CPPM_CXX_STANDARD {})\n",
         manifest.package.cpp_standard
     );
-    for (name, dependency) in &manifest.dependencies {
-        let (package, targets) = packages::mapping(name, dependency, graph)?;
-        source.push_str(&format!("find_package({package} REQUIRED)\ntarget_link_libraries(cppm_dependencies INTERFACE {})\n", targets.join(" ")));
+    // Both targets always exist, so a CMakeLists.txt can link them before the
+    // first package is added. Tests link cppm_dev_dependencies as well.
+    for (target, dependencies) in [
+        ("cppm_dependencies", &manifest.dependencies),
+        ("cppm_dev_dependencies", &manifest.dev_dependencies),
+    ] {
+        source.push_str(&format!("add_library({target} INTERFACE)\n"));
+        for (name, dependency) in dependencies {
+            let (package, targets) = packages::mapping(name, dependency, graph)?;
+            source.push_str(&format!(
+                "find_package({package} REQUIRED)\ntarget_link_libraries({target} INTERFACE {})\n",
+                targets.join(" ")
+            ));
+        }
     }
     source.push_str(&packages::cmake_fixes(graph));
     Ok(source)
@@ -188,11 +292,11 @@ fn prepare_with_cache(
             .as_ref()
             .context("cppm.lock is missing; run `cppm install` before using --frozen-lockfile")?;
         ensure!(
-            previous.dependencies == project.manifest.dependencies,
+            previous.matches(&project.manifest),
             "cppm.toml and cppm.lock disagree; run `cppm install` to update the lockfile"
         );
     }
-    let (graph, metadata, registration) = if project.manifest.dependencies.is_empty() {
+    let (graph, metadata, registration) = if !project.manifest.has_requirements() {
         (Value::Null, Value::Null, None)
     } else {
         let installed = conan::install(
@@ -219,6 +323,7 @@ fn prepare_with_cache(
         lockfile: Lockfile {
             format: 1,
             dependencies: project.manifest.dependencies.clone(),
+            dev_dependencies: project.manifest.dev_dependencies.clone(),
             conan: graph,
         },
         integration: integration(&project.manifest, &metadata)?,

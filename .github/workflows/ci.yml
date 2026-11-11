@@ -52,6 +52,9 @@ jobs:
         run: cargo test --locked --test runtime -- --ignored --nocapture
       - name: Share one dependency binary across projects and prune safely
         run: cargo test --locked --test store -- --ignored --nocapture
+      - name: Dev dependencies, inspection, upgrades and Conan-free rebuilds
+        if: runner.os == 'Linux'
+        run: cargo test --locked --test dependencies -- --ignored --nocapture --test-threads=1
       - name: Database client integration tests
         run: cargo test --locked --test databases -- --ignored --nocapture --test-threads=1
       - name: Drogon API integration test

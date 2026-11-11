@@ -18,6 +18,9 @@
 14. [Armazenamento compartilhado](#armazenamento-compartilhado)
 15. [Interface interativa](#interface-interativa)
 16. [Build protegido e plugins LLVM](#build-protegido-e-plugins-llvm)
+17. [Dependências de desenvolvimento](#dependências-de-desenvolvimento)
+18. [Inspecionar e atualizar dependências](#inspecionar-e-atualizar-dependências)
+19. [Roadmap](roadmap.md)
 
 ## Interface interativa
 
@@ -158,6 +161,54 @@ Cada chamada resolve e instala o conjunto uma vez. Aliases duplicados são
 agrupados; versões conflitantes do mesmo pacote são rejeitadas antes da
 instalação. Se o Conan falhar, o manifesto e o lockfile anteriores permanecem
 intactos. `--cmake-package` e `--target` exigem um único pacote por chamada.
+
+## Dependências de desenvolvimento
+
+```sh
+cppm add -D catch2
+cppm install -D googletest
+```
+
+`-D`/`--dev` grava em `[dev-dependencies]`. A aplicação continua linkando
+`cppm_dependencies`; executáveis de teste linkam também `cppm_dev_dependencies`:
+
+```cmake
+add_executable(unit tests/unit.cpp)
+target_link_libraries(unit PRIVATE cppm_dependencies cppm_dev_dependencies Catch2::Catch2WithMain)
+add_test(NAME unit COMMAND unit)
+```
+
+Headers de uma dependência de desenvolvimento não chegam à aplicação. Um pacote
+pertence a uma única seção: `cppm add` com ou sem `-D` o move. `cppm remove`
+localiza o pacote em qualquer uma delas.
+
+## Inspecionar e atualizar dependências
+
+```sh
+cppm list                 # dependências diretas (alias: ls)
+cppm list --depth 1       # mais um nível de transitivas
+cppm list --all --json    # árvore completa para ferramentas
+cppm why zlib             # caminhos que trazem o pacote
+cppm licenses             # licenças declaradas pelas receitas
+cppm outdated             # versões novas disponíveis
+cppm upgrade              # atualiza dentro da mesma major (alias: up)
+cppm upgrade fmt --latest # permite trocar de major
+cppm ci                   # instala exatamente o cppm.lock
+```
+
+`list`, `why` e `licenses` não iniciam o Conan: usam o grafo da última
+instalação e recusam responder se manifesto ou lockfile mudaram depois dela.
+Use `--release` para consultar a resolução Release. `outdated` mostra três
+colunas: `Current`, `Wanted` (a mais nova na mesma major; em `0.x`, na mesma
+minor) e `Latest`. `upgrade` aplica `Wanted`; `--latest` aplica `Latest` e pode
+exigir mudanças no código. As licenças vêm do campo declarado em cada receita
+Conan; confira-as antes de distribuir.
+
+`cppm ci` equivale a `cppm install --frozen-lockfile`: falha se o lockfile
+estiver ausente ou divergir do manifesto, e nunca o regrava.
+
+Nomes digitados errado recebem sugestão: `cppm run biuld` responde
+`unknown script 'biuld' (did you mean 'build'?)`.
 
 ## Armazenamento compartilhado
 
@@ -512,6 +563,7 @@ de libdecor usada por SDL 3.4 com Wayland.
 ## Escopo atual
 
 Uma aplicação principal por projeto, dependências com versão exata e backend
-Conan 2. Watch, workspaces, registro próprio, cross-compilation e dependências
-Conan no WASM ainda não fazem parte desta versão. `add` e `remove` reserializam
-o manifesto, portanto comentários do TOML não são preservados.
+Conan 2. Workspaces, registro próprio, cross-compilation e dependências Conan
+no WASM ainda não fazem parte desta versão. `add`, `remove` e `upgrade`
+preservam comentários e formatação do manifesto. Os próximos passos estão no
+[roadmap](roadmap.md).

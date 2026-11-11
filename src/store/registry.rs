@@ -1,6 +1,6 @@
 use super::{capture, command, content, home, lock};
 use crate::{
-    conan::InstallOptions,
+    conan::{Graph, InstallOptions},
     manifest::Dependency,
     project::Project,
     storage::{write_atomic, write_if_changed},
@@ -28,21 +28,19 @@ impl References {
     }
 
     fn from_graph(graph: &Value) -> Result<Self> {
+        let graph = Graph::new(graph);
+        ensure!(
+            graph.is_present(),
+            "Conan did not return graph nodes for project registration"
+        );
         let mut refs = Self::default();
-        let nodes = graph["graph"]["nodes"]
-            .as_object()
-            .context("Conan did not return graph nodes for project registration")?;
-        for node in nodes.values() {
-            if let Some(python) = node["python_requires"].as_object() {
-                refs.recipes.extend(python.keys().cloned());
-            }
-            if matches!(
-                node["recipe"].as_str(),
-                Some("Editable" | "Consumer" | "Virtual")
-            ) {
+        for node in graph.nodes() {
+            refs.recipes
+                .extend(node.python_requires().map(str::to_owned));
+            if node.is_editable() || node.is_consumer() {
                 continue;
             }
-            let Some(reference) = node["ref"].as_str().filter(|r| r.contains('#')) else {
+            let Some(reference) = node.reference().filter(|r| r.contains('#')) else {
                 continue;
             };
             ensure!(
@@ -51,9 +49,9 @@ impl References {
             );
             refs.recipes.insert(reference.to_owned());
             if let (Some(id), Some(revision), Some(folder)) = (
-                node["package_id"].as_str(),
-                node["prev"].as_str(),
-                node["package_folder"].as_str(),
+                node.package_id(),
+                node.package_revision(),
+                node.package_folder(),
             ) {
                 ensure!(
                     !id.contains('*') && !revision.contains('*'),
@@ -251,7 +249,7 @@ pub(crate) fn lease(
     release: bool,
     options: &InstallOptions,
 ) -> Result<Option<Lease>> {
-    if project.manifest.dependencies.is_empty() {
+    if !project.manifest.has_requirements() {
         return Ok(None);
     }
     let home = home(options)?;

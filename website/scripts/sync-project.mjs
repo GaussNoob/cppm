@@ -37,6 +37,7 @@ await Promise.all([
   copyFile(path.join(projectRoot, "docs/packages.md"), path.join(docsDir, "packages.md")),
   copyFile(path.join(projectRoot, "docs/guide.md"), path.join(docsDir, "guide.md")),
   copyFile(path.join(projectRoot, "docs/windows.md"), path.join(docsDir, "windows.md")),
+  copyFile(path.join(projectRoot, "docs/roadmap.md"), path.join(docsDir, "roadmap.md")),
   copyFile(path.join(projectRoot, "LICENSE"), path.join(siteRoot, "public/LICENSE.txt")),
   copyFile(path.join(projectRoot, "THIRD_PARTY_NOTICES.txt"), path.join(siteRoot, "public/THIRD_PARTY_NOTICES.txt")),
 ]);

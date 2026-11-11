@@ -25,14 +25,12 @@ pub fn run(command: &mut Command) -> Result<()> {
     Ok(())
 }
 
-pub fn check_tool(program: &str, cwd: &Path) -> Result<()> {
-    let output = platform::command(program)
-        .arg("--version")
-        .current_dir(cwd)
-        .output()
-        .with_context(|| format!("{program} is required; install it and add it to PATH"))?;
-    if !output.status.success() {
-        bail!("{program} --version failed");
+/// Fails early, with installation advice, when a build tool is not in PATH.
+/// This starts no process, so it is free on every build; a tool that exists
+/// but cannot run still fails when it is invoked.
+pub fn require_tool(program: &str) -> Result<()> {
+    if platform::find_executable(program).is_none() {
+        bail!("{program} is required; install it and add it to PATH");
     }
     Ok(())
 }

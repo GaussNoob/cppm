@@ -2,9 +2,9 @@ use crate::{
     build::{self, BuildOptions},
     clean,
     dependencies::{self, InstallOptions},
-    doctor, editor, packages, process,
+    doctor, editor, inspect, packages, process,
     project::{self, Project},
-    store,
+    store, suggest,
     templates::Template,
     ui, update, watch,
 };
@@ -63,6 +63,26 @@ enum Action {
         #[arg(long, value_enum, default_value_t = Template::App, ignore_case = true)]
         template: Template,
     },
+    #[command(flatten)]
+    Project(ProjectAction),
+    /// List packages with built-in version and CMake defaults.
+    Packages,
+    /// Inspect or clean the dependency store shared by all projects.
+    Store {
+        #[command(subcommand)]
+        command: store::Action,
+    },
+    /// Check project tools and compile and run a C++ or WebAssembly probe.
+    Doctor {
+        /// Print a machine-readable report, including every failed check.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+/// Commands that operate on the project containing the current directory.
+#[derive(Subcommand)]
+enum ProjectAction {
     /// Add and install dependencies together (fmt json or fmt@11.0.2).
     Add {
         #[arg(required = true, num_args = 1..)]
@@ -71,13 +91,71 @@ enum Action {
         cmake_package: Option<String>,
         #[arg(long = "target")]
         targets: Vec<String>,
+        /// Add to [dev-dependencies]: linked into tests, never into the application.
+        #[arg(short = 'D', long)]
+        dev: bool,
     },
     /// Remove a dependency and refresh the lockfile.
+    #[command(visible_alias = "rm")]
     Remove { package: String },
     /// Install the manifest dependencies, or add several packages together.
+    #[command(visible_alias = "i")]
     Install {
         #[arg(num_args = 0..)]
         packages: Vec<String>,
+        #[arg(long)]
+        release: bool,
+        /// Add the given packages to [dev-dependencies].
+        #[arg(short = 'D', long, requires = "packages")]
+        dev: bool,
+    },
+    /// Install exactly what cppm.lock records; fails instead of updating it (for CI).
+    Ci {
+        #[arg(long)]
+        release: bool,
+    },
+    /// Show direct dependencies, or the resolved tree with --depth/--all.
+    #[command(visible_alias = "ls")]
+    List {
+        /// Levels of transitive dependencies to show below the direct ones.
+        #[arg(long, default_value_t = 0, conflicts_with = "all")]
+        depth: usize,
+        /// Show the whole resolved tree.
+        #[arg(long)]
+        all: bool,
+        /// Inspect the Release resolution instead of Debug.
+        #[arg(long)]
+        release: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Explain which dependencies bring a package into the project.
+    Why {
+        package: String,
+        #[arg(long)]
+        release: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// List the licenses declared by every library in the dependency graph.
+    Licenses {
+        #[arg(long)]
+        release: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Check the direct dependencies for newer versions.
+    Outdated {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Upgrade dependencies within their major version (all, or the ones named).
+    #[command(visible_alias = "up")]
+    Upgrade {
+        packages: Vec<String>,
+        /// Also cross major versions, which may break the application's code.
+        #[arg(long)]
+        latest: bool,
         #[arg(long)]
         release: bool,
     },
@@ -148,19 +226,6 @@ enum Action {
         build: BuildArgs,
         #[arg(long, default_value_t = 8080, value_parser = clap::value_parser!(u16).range(1..))]
         port: u16,
-    },
-    /// List packages with built-in version and CMake defaults.
-    Packages,
-    /// Inspect or clean the dependency store shared by all projects.
-    Store {
-        #[command(subcommand)]
-        command: store::Action,
-    },
-    /// Check project tools and compile and run a C++ or WebAssembly probe.
-    Doctor {
-        /// Print a machine-readable report, including every failed check.
-        #[arg(long)]
-        json: bool,
     },
 }
 
@@ -238,132 +303,169 @@ impl Cli {
             verbose: self.verbose,
         };
         match self.command {
+            Action::Update { .. } | Action::UpdateCheck => Ok(()),
             Action::Ui => ui::run(&cwd, &install),
             Action::Init {
                 path,
                 name,
                 template,
             } => project::init(&path, name, template),
-            Action::Packages => {
-                for entry in packages::CATALOG {
-                    println!(
-                        "{}@{}  {} ({})",
-                        entry.name, entry.version, entry.target, entry.cmake_package
-                    );
-                }
-                println!("Aliases:");
-                for (alias, package) in packages::ALIASES {
-                    let (_, version) = packages::parse_spec(alias)?;
-                    match version {
-                        Some(version) => println!("  {alias}={package}@{version}"),
-                        None => println!("  {alias}={package}"),
-                    }
-                }
-                println!("Other Conan recipes are resolved automatically by name.");
-                println!("Common examples: sdl, curl, sfml, raylib, glfw, glm, openssl");
-                println!(
-                    "Database packages install client libraries; database servers run separately."
-                );
-                Ok(())
-            }
+            Action::Packages => packages::print(),
             Action::Doctor { json } => doctor::run(&cwd, json),
             Action::Store { command } => store::run(command, &install),
-            action => {
-                let project = Project::discover(&cwd)?;
-                match action {
-                    Action::Add {
-                        packages,
-                        cmake_package,
-                        targets,
-                    } => {
-                        let names = dependencies::add(
-                            &project,
-                            &packages,
-                            cmake_package,
-                            targets,
-                            false,
-                            &install,
-                        )?;
-                        for name in names {
-                            println!("Added {name}");
-                        }
-                        Ok(())
-                    }
-                    Action::Remove { package } => {
-                        dependencies::remove(&project, &package, &install)?;
-                        println!("Removed {package}");
-                        Ok(())
-                    }
-                    Action::Install { packages, release } => {
-                        if packages.is_empty() {
-                            dependencies::install(&project, release, &install)?;
-                            println!("Dependencies ready");
-                        } else {
-                            for name in dependencies::add(
-                                &project,
-                                &packages,
-                                None,
-                                vec![],
-                                release,
-                                &install,
-                            )? {
-                                println!("Added {name}");
-                            }
-                        }
-                        Ok(())
-                    }
-                    Action::Run { script, args } => {
-                        if let Some(name) = script {
-                            let body = project.manifest.scripts.get(&name).with_context(|| {
-                                format!("unknown script '{name}'; use `cppm run` to list scripts")
-                            })?;
-                            process::script(&project.root, &name, body, &args, &install)
-                        } else {
-                            ensure!(args.is_empty(), "specify a script before passing arguments");
-                            for (name, body) in project.manifest.scripts {
-                                println!("{name}: {body}");
-                            }
-                            Ok(())
-                        }
-                    }
-                    Action::Build(args) => build::build(&project, &args.into(), &install),
-                    Action::Clean { mode, dry_run } => clean::run(&project, mode, dry_run),
-                    Action::Watch {
-                        script,
-                        interval,
-                        debounce,
-                        paths,
-                        args,
-                    } => watch::run(
-                        &project,
+            Action::Project(action) => action.execute(&Project::discover(&cwd)?, install),
+        }
+    }
+}
+
+fn report_added(names: Vec<String>) {
+    for name in names {
+        println!("Added {name}");
+    }
+}
+
+impl ProjectAction {
+    fn execute(self, project: &Project, mut install: InstallOptions) -> Result<()> {
+        match self {
+            Self::Add {
+                packages,
+                cmake_package,
+                targets,
+                dev,
+            } => {
+                report_added(dependencies::add(
+                    project,
+                    &packages,
+                    cmake_package,
+                    targets,
+                    false,
+                    dev,
+                    &install,
+                )?);
+                Ok(())
+            }
+            Self::Remove { package } => {
+                dependencies::remove(project, &package, &install)?;
+                println!("Removed {package}");
+                Ok(())
+            }
+            Self::Install {
+                packages,
+                release,
+                dev,
+            } => {
+                if packages.is_empty() {
+                    dependencies::install(project, release, &install)?;
+                    println!("Dependencies ready");
+                } else {
+                    report_added(dependencies::add(
+                        project,
+                        &packages,
+                        None,
+                        vec![],
+                        release,
+                        dev,
                         &install,
-                        &watch::Options {
-                            script,
-                            interval: std::time::Duration::from_millis(interval),
-                            debounce: std::time::Duration::from_millis(debounce),
-                            paths,
-                            args,
-                        },
-                    ),
-                    Action::Configure { release, fresh } => {
-                        build::configure(&project, release, fresh, &install)
-                    }
-                    Action::Vscode { workspace } => {
-                        editor::vscode(&project, workspace.as_deref().unwrap_or(&project.root))
-                    }
-                    Action::Exec {
-                        build: args,
-                        args: forwarded,
-                    } => build::exec(&project, &args.into(), &install, &forwarded),
-                    Action::Test {
-                        build: args,
-                        args: forwarded,
-                    } => build::test(&project, &args.into(), &install, &forwarded),
-                    Action::Serve { build: args, port } => {
-                        build::serve(&project, &args.into(), &install, port)
-                    }
-                    _ => unreachable!(),
+                    )?);
                 }
+                Ok(())
+            }
+            Self::Ci { release } => {
+                install.frozen = true;
+                dependencies::install(project, release, &install)?;
+                println!("Dependencies ready (cppm.lock unchanged)");
+                Ok(())
+            }
+            Self::List {
+                depth,
+                all,
+                release,
+                json,
+            } => inspect::list(project, if all { usize::MAX } else { depth }, release, json),
+            Self::Why {
+                package,
+                release,
+                json,
+            } => inspect::why(project, &package, release, json),
+            Self::Licenses { release, json } => inspect::licenses(project, release, json),
+            Self::Outdated { json } => inspect::outdated(project, &install, json),
+            Self::Upgrade {
+                packages,
+                latest,
+                release,
+            } => {
+                let upgrades =
+                    dependencies::upgrade(project, &packages, latest, release, &install)?;
+                if upgrades.is_empty() {
+                    println!(
+                        "Nothing to upgrade{}.",
+                        if latest {
+                            ""
+                        } else {
+                            " within the current major versions; see `cppm outdated`"
+                        }
+                    );
+                }
+                for upgrade in upgrades {
+                    println!(
+                        "Upgraded {} {} -> {}",
+                        upgrade.name, upgrade.from, upgrade.to
+                    );
+                }
+                Ok(())
+            }
+            Self::Run { script, args } => {
+                let scripts = &project.manifest.scripts;
+                let Some(name) = script else {
+                    ensure!(args.is_empty(), "specify a script before passing arguments");
+                    for (name, body) in scripts {
+                        println!("{name}: {body}");
+                    }
+                    return Ok(());
+                };
+                let body = scripts.get(&name).with_context(|| {
+                    format!(
+                        "unknown script '{name}'{}; use `cppm run` to list scripts",
+                        suggest::hint(&name, scripts.keys())
+                    )
+                })?;
+                process::script(&project.root, &name, body, &args, &install)
+            }
+            Self::Build(args) => build::build(project, &args.into(), &install),
+            Self::Clean { mode, dry_run } => clean::run(project, mode, dry_run),
+            Self::Watch {
+                script,
+                interval,
+                debounce,
+                paths,
+                args,
+            } => watch::run(
+                project,
+                &install,
+                &watch::Options {
+                    script,
+                    interval: std::time::Duration::from_millis(interval),
+                    debounce: std::time::Duration::from_millis(debounce),
+                    paths,
+                    args,
+                },
+            ),
+            Self::Configure { release, fresh } => {
+                build::configure(project, release, fresh, &install)
+            }
+            Self::Vscode { workspace } => {
+                editor::vscode(project, workspace.as_deref().unwrap_or(&project.root))
+            }
+            Self::Exec {
+                build: args,
+                args: forwarded,
+            } => build::exec(project, &args.into(), &install, &forwarded),
+            Self::Test {
+                build: args,
+                args: forwarded,
+            } => build::test(project, &args.into(), &install, &forwarded),
+            Self::Serve { build: args, port } => {
+                build::serve(project, &args.into(), &install, port)
             }
         }
     }

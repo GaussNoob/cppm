@@ -112,8 +112,8 @@ fn build_locked(
 }
 
 fn prepare(project: &Project, release: bool, install: &InstallOptions, reuse: bool) -> Result<()> {
-    process::check_tool("cmake", &project.root)?;
-    process::check_tool("ninja", &project.root)?;
+    process::require_tool("cmake")?;
+    process::require_tool("ninja")?;
     if project.manifest.package.target == Target::Wasm {
         emscripten::check(&project.root).with_context(|| {
             format!(
@@ -181,7 +181,7 @@ fn configure_generated(
             "--log-level=WARNING"
         })
         .current_dir(&project.root);
-    if !project.manifest.dependencies.is_empty() {
+    if project.manifest.has_requirements() {
         let toolchain = project
             .root
             .join(".cppm/conan")
@@ -215,10 +215,13 @@ fn configure_generated(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Err(error.into()),
     }
-    process::run(&mut configure)?;
+    let configured = process::run(&mut configure);
     if let Some(protection) = protection {
+        // A project that disables the injected hook fails differently across
+        // CMake versions; always name the cause instead of a bare exit status.
         protection.verify()?;
     }
+    configured?;
     if let Ok(signature) = configuration_key(project, release, &directory, &configure) {
         write_if_changed(&marker, signature.as_bytes())?;
     }
@@ -253,7 +256,7 @@ fn configuration_key(
     value.file(&project.root.join("web/shell.html"))?;
     value.file(&project.root.join(".cppm/dependencies.cmake"))?;
     value.file(&directory.join("cppm-protection.cmake"))?;
-    if !project.manifest.dependencies.is_empty() {
+    if project.manifest.has_requirements() {
         value.directory(
             &project
                 .root

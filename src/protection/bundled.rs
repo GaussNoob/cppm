@@ -261,7 +261,7 @@ impl Plugin {
         options: &InstallOptions,
     ) -> Result<InstallOptions> {
         let mut effective = options.clone();
-        if project.manifest.dependencies.is_empty() {
+        if !project.manifest.has_requirements() {
             return Ok(effective);
         }
         // Preserve user-selected profiles; reject a mislabeled GCC/MSVC graph

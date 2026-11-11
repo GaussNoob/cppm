@@ -28,6 +28,47 @@ fn hash(path: &Path) -> Result<String> {
     Ok(hasher.finalize().to_hex().to_string())
 }
 
+/// Hashes a package's files on all cores. Reading is the expensive part of
+/// deduplication and is independent per file; linking stays sequential.
+fn hash_all(paths: &[PathBuf]) -> Vec<Result<String>> {
+    let workers = std::thread::available_parallelism()
+        .map_or(1, usize::from)
+        .min(8)
+        .min(paths.len() / 32 + 1);
+    if workers < 2 {
+        return paths.iter().map(|path| hash(path)).collect();
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let mut digests: Vec<Option<Result<String>>> = paths.iter().map(|_| None).collect();
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut hashed = Vec::new();
+                    // Claim one file at a time so a few large libraries do not
+                    // leave the other workers idle.
+                    loop {
+                        let index = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(path) = paths.get(index) else {
+                            break hashed;
+                        };
+                        hashed.push((index, hash(path)));
+                    }
+                })
+            })
+            .collect();
+        for handle in handles {
+            for (index, digest) in handle.join().expect("hashing worker panicked") {
+                digests[index] = Some(digest);
+            }
+        }
+    });
+    digests
+        .into_iter()
+        .map(|digest| digest.expect("every file is claimed by a worker"))
+        .collect()
+}
+
 fn object(pool: &Path, digest: &str, mode: u32) -> PathBuf {
     pool.join(&digest[..2]).join(format!("{digest}-{mode:03o}"))
 }
@@ -66,13 +107,14 @@ pub(super) fn dedupe<'a>(
         if !package.try_exists()? {
             continue;
         }
-        for path in files(package)? {
-            let metadata = fs::metadata(&path)?;
+        let paths = files(package)?;
+        for (path, digest) in paths.iter().zip(hash_all(&paths)) {
+            let metadata = fs::metadata(path)?;
             report.files += 1;
-            let digest = hash(&path)?;
+            let digest = digest?;
             let object = object(&pool, &digest, mode(&metadata));
             fs::create_dir_all(object.parent().unwrap())?;
-            let created = match fs::hard_link(&path, &object) {
+            let created = match fs::hard_link(path, &object) {
                 Ok(()) => true,
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => false,
                 // Some filesystems do not support hard links, or the package
@@ -82,12 +124,15 @@ pub(super) fn dedupe<'a>(
                     continue;
                 }
             };
+            // A file that already is the pooled object was just hashed under
+            // this very name; reading the same bytes again proves nothing.
+            let linked = !created && same_file::is_same_file(path, &object)?;
             if verified.insert(object.clone()) {
                 let object_metadata = fs::symlink_metadata(&object)?;
                 ensure!(
                     object_metadata.is_file()
                         && mode(&object_metadata) == mode(&metadata)
-                        && (created || hash(&object)? == digest),
+                        && (created || linked || hash(&object)? == digest),
                     "shared file {} failed its content check; reinstall the affected package",
                     object.display()
                 );
@@ -95,7 +140,7 @@ pub(super) fn dedupe<'a>(
                 permissions.set_readonly(true);
                 fs::set_permissions(&object, permissions)?;
             }
-            if created || same_file::is_same_file(&path, &object)? {
+            if created || linked {
                 continue;
             }
             // Prepare the link beside its destination and atomically replace
@@ -106,7 +151,7 @@ pub(super) fn dedupe<'a>(
                 report.skipped_files += 1;
                 continue;
             }
-            if fs::rename(&link, &path).is_err() {
+            if fs::rename(&link, path).is_err() {
                 remove_file(&link)?;
                 // Windows needs a writable attribute to unlink a read-only
                 // file, and that attribute is shared by all hard links.
