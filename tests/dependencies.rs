@@ -16,7 +16,9 @@ fn command(root: &Path) -> Command {
         .env_remove("CPPM_OFFLINE")
         .env_remove("CPPM_FROZEN_LOCKFILE")
         .env_remove("CPPM_VERBOSE")
-        .env_remove("CPPM_SCRIPT_STACK");
+        .env_remove("CPPM_SCRIPT_STACK")
+        // Tests must not depend on being run from VS Code's terminal.
+        .env_remove("TERM_PROGRAM");
     command
 }
 

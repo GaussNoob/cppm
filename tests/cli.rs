@@ -16,6 +16,8 @@ fn cppm(root: &Path, args: &[&str]) -> Output {
         .env_remove("CPPM_FROZEN_LOCKFILE")
         .env_remove("CPPM_VERBOSE")
         .env_remove("CPPM_SCRIPT_STACK")
+        // Tests must not depend on being run from VS Code's terminal.
+        .env_remove("TERM_PROGRAM")
         .args(args)
         .output()
         .unwrap()
@@ -442,7 +444,7 @@ fn vscode_tasks_build_and_run_the_project_from_a_parent_workspace_with_spaces() 
         serde_json::from_slice(&fs::read(root.join(".vscode/settings.json")).unwrap()).unwrap();
     assert_eq!(
         own["C_Cpp.default.compileCommands"],
-        "${workspaceFolder}/compile_commands.json"
+        serde_json::json!(["${workspaceFolder}/compile_commands.json"])
     );
     // A parent workspace keeps its own settings and gains the project's database.
     fs::create_dir(temp.path().join(".vscode")).unwrap();
@@ -458,7 +460,7 @@ fn vscode_tasks_build_and_run_the_project_from_a_parent_workspace_with_spaces() 
     assert_eq!(settings["editor.tabSize"], 2);
     assert_eq!(
         settings["C_Cpp.default.compileCommands"],
-        "${workspaceFolder}/my app/compile_commands.json"
+        serde_json::json!(["${workspaceFolder}/my app/compile_commands.json"])
     );
     let path = temp.path().join(".vscode/tasks.json");
     let tasks: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
@@ -625,4 +627,75 @@ fn powershell_scripts_preserve_data_and_exit_status() {
     assert!(!temp.path().join("injected").exists());
     assert_eq!(cppm(temp.path(), &["run", "fail"]).status.code(), Some(23));
     assert!(!cppm(temp.path(), &["run", "cycle"]).status.success());
+}
+
+fn compile_commands(settings: &Path) -> serde_json::Value {
+    let settings: serde_json::Value = serde_json::from_slice(&fs::read(settings).unwrap()).unwrap();
+    settings["C_Cpp.default.compileCommands"].clone()
+}
+
+#[test]
+fn projects_created_from_a_vscode_terminal_work_in_the_open_parent_folder() {
+    let temp = tempfile::Builder::new()
+        .prefix("cppm parent workspace ")
+        .tempdir()
+        .unwrap();
+    let workspace = temp.path();
+    let settings = workspace.join(".vscode/settings.json");
+    let init = |name: &str| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_cppm"));
+        command
+            .current_dir(workspace)
+            .env("TERM_PROGRAM", "vscode")
+            .args(["init", name]);
+        success(command.output().unwrap())
+    };
+    // VS Code's terminal starts in the open folder: register there at once.
+    let output = init("server");
+    assert!(output.contains("VS Code IntelliSense"), "{output}");
+    assert!(!output.contains(r"\\?\"), "{output}");
+    init("client-app");
+    assert_eq!(
+        compile_commands(&settings),
+        serde_json::json!([
+            "${workspaceFolder}/server/compile_commands.json",
+            "${workspaceFolder}/client-app/compile_commands.json"
+        ])
+    );
+    // Outside VS Code nothing is written around the new project.
+    let outside = tempfile::tempdir().unwrap();
+    success(cppm(outside.path(), &["init", "plain"]));
+    assert!(!outside.path().join(".vscode").exists());
+
+    // A project created elsewhere is registered by its first configuration,
+    // keeping the folder's other settings; a 0.5.1-style single entry and a
+    // repeated build are handled.
+    fs::write(
+        &settings,
+        r#"{"editor.tabSize": 2, "C_Cpp.default.compileCommands": "${workspaceFolder}/server/compile_commands.json"}"#,
+    )
+    .unwrap();
+    let later = workspace.join("tools/later");
+    success(cppm(workspace, &["init", "tools/later"]));
+    for _ in 0..2 {
+        success(cppm(&later, &["configure"]));
+    }
+    let value: serde_json::Value = serde_json::from_slice(&fs::read(&settings).unwrap()).unwrap();
+    assert_eq!(value["editor.tabSize"], 2);
+    assert_eq!(
+        compile_commands(&settings),
+        serde_json::json!([
+            "${workspaceFolder}/server/compile_commands.json",
+            "${workspaceFolder}/tools/later/compile_commands.json"
+        ])
+    );
+    // Commented settings and a database the user chose are never rewritten.
+    for text in [
+        "{\n  // mine\n  \"editor.tabSize\": 4\n}\n",
+        "{\"C_Cpp.default.compileCommands\": \"build/compile_commands.json\"}",
+    ] {
+        fs::write(&settings, text).unwrap();
+        success(cppm(&later, &["configure", "--fresh"]));
+        assert_eq!(fs::read_to_string(&settings).unwrap(), text);
+    }
 }

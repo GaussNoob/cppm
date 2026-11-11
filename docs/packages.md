@@ -126,6 +126,9 @@ de conexão ou de autenticação com um servidor real.
 
 `httplib` é alias de `cpp-httplib`. Asio standalone é uma biblioteca independente;
 Boost.Asio acompanha o pacote `boost` e usa `<boost/asio.hpp>`.
+No Windows, projetos com Asio ou Boost recebem `_WIN32_WINNT=0x0A00` (Windows 10),
+o que evita o aviso "Please define _WIN32_WINNT" em cada compilação. Para outro
+alvo, configure `-DCPPM_WIN32_WINNT=0x0601`; um valor vazio desativa a definição.
 
 Exemplo de servidor com cpp-httplib:
 

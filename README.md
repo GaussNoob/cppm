@@ -97,7 +97,7 @@ Os scripts remotos e a consulta de versões passam a funcionar após a primeira
 release publicada pelo novo workflow `release.yml`, que inclui o arquivo `VERSION`.
 
 Baixe os pacotes na [última release](https://github.com/GaussNoob/cppm/releases/latest).
-No Windows, execute `cppm-0.5.1-windows-x86_64-setup.exe`: o assistente instala a
+No Windows, execute `cppm-0.5.2-windows-x86_64-setup.exe`: o assistente instala a
 CLI, Python, Conan, CMake, Ninja, Emscripten e seu Node.js privado, prepara MSVC e Windows SDK se faltarem e
 configura o PATH. Depois, abra um terminal novo e use `cppm`. A etapa do
 compilador pode pedir administrador e baixar vários GB.
@@ -550,13 +550,21 @@ cppm configure --offline --frozen-lockfile
 Um `compile_commands.json` personalizado ou um link existente é preservado.
 A cópia atual do cppm fica também em `.cppm/compile_commands.json`.
 
-Novos projetos incluem `.vscode/settings.json` apontando a extensão C/C++ da
-Microsoft para esse banco (`C_Cpp.default.compileCommands`), então o IntelliSense
-encontra os headers das dependências sem configuração. Em projetos antigos ou
-quando o VS Code abre uma pasta pai, `cppm vscode` adiciona a mesma chave ao
-`settings.json` existente; arquivos com comentários ou com outro banco já
-configurado são preservados. clangd (VS Code, Neovim, Helix, Zed, CLion) lê o
-`compile_commands.json` da raiz do projeto diretamente.
+O IntelliSense funciona sem configuração, abrindo no VS Code a pasta do
+projeto ou uma pasta que contenha vários projetos:
+
+- Todo projeto novo inclui `.vscode/settings.json` com
+  `C_Cpp.default.compileCommands` apontando para o banco do cppm.
+- `cppm init nome` executado no terminal do VS Code registra o projeto também
+  no `.vscode/settings.json` da pasta aberta. Cada projeto entra na lista.
+- Em cada build, o projeto é registrado na pasta acima dele que já tenha
+  `.vscode` (exceto a pasta pessoal, onde o VS Code guarda seus próprios dados).
+- `cppm vscode --workspace caminho` registra explicitamente em outra pasta.
+
+Configurações existentes são mantidas; arquivos com comentários (JSONC) ou com
+um banco escolhido pelo usuário não são reescritos. clangd (VS Code, Neovim,
+Helix, Zed, CLion) lê o `compile_commands.json` da raiz do projeto diretamente.
+
 Se o editor ainda mostrar dados antigos, execute `clangd: Restart language server`.
 A configuração do editor é uma etapa posterior à instalação; se o CMake falhar,
 as dependências instaladas são mantidas e o cppm indica como repetir essa etapa.

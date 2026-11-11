@@ -64,10 +64,11 @@ impl Project {
 }
 
 pub fn init(path: &Path, name: Option<String>, template: Template) -> Result<()> {
+    let cwd = std::env::current_dir()?;
     let root = if path.is_absolute() {
         path.to_path_buf()
     } else {
-        std::env::current_dir()?.join(path)
+        cwd.join(path)
     };
     // Canonicalize the directory before deriving a name so `init .` works.
     fs::create_dir_all(&root)?;
@@ -108,7 +109,11 @@ pub fn init(path: &Path, name: Option<String>, template: Template) -> Result<()>
         write_atomic(&ignore, contents.as_bytes())?;
     }
     project.save_manifest()?;
-    println!("Created {name} in {}", project.root.display());
+    println!(
+        "Created {name} in {}",
+        crate::editor::display(&project.root)
+    );
+    crate::editor::register_init_workspace(&cwd, &project.root);
     if matches!(template, Template::Wasm) {
         println!(
             "Installed Emscripten SDKs are detected automatically; check yours with `cppm doctor`."

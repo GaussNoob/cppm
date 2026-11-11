@@ -295,6 +295,9 @@ pub fn cmake_fixes(graph: &Value) -> String {
     {
         fixes.push_str(include_str!("../cmake/postgresql-gssapi.cmake"));
     }
+    if graph.host("asio").is_some() || graph.host("boost").is_some() {
+        fixes.push_str(include_str!("../cmake/asio-windows.cmake"));
+    }
     if graph.host("protobuf").is_some() {
         fixes.push_str(include_str!("../cmake/protobuf-protoc.cmake"));
     }
@@ -413,5 +416,14 @@ mod tests {
             assert!(cmake_fixes(&graph).is_empty());
         }
         assert!(cmake_fixes(&Value::Null).is_empty());
+    }
+
+    #[test]
+    fn asio_declares_the_windows_version_only_when_asio_or_boost_is_used() {
+        let graph = |name: &str| serde_json::json!({"graph": {"nodes": {"1": {"name": name, "version": "1.0", "context": "host"}}}});
+        for name in ["asio", "boost"] {
+            assert!(cmake_fixes(&graph(name)).contains("_WIN32_WINNT=${CPPM_WIN32_WINNT}"));
+        }
+        assert!(!cmake_fixes(&graph("fmt")).contains("_WIN32_WINNT"));
     }
 }

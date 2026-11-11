@@ -13,6 +13,8 @@ fn cppm(root: &Path, args: &[&str]) -> Output {
         .env_remove("CPPM_FROZEN_LOCKFILE")
         .env_remove("CPPM_VERBOSE")
         .env_remove("CPPM_SCRIPT_STACK")
+        // Tests must not depend on being run from VS Code's terminal.
+        .env_remove("TERM_PROGRAM")
         .env_remove("CPPM_WATCH_ACTIVE")
         .args(args)
         .output()
@@ -219,7 +221,7 @@ fn vscode_upgrades_generated_tasks_and_preserves_custom_tasks() {
     let created: serde_json::Value = serde_json::from_slice(&fs::read(&settings).unwrap()).unwrap();
     assert_eq!(
         created["C_Cpp.default.compileCommands"],
-        "${workspaceFolder}/compile_commands.json"
+        serde_json::json!(["${workspaceFolder}/compile_commands.json"])
     );
     for text in [
         "{\n  // mine\n  \"editor.tabSize\": 4\n}\n",
