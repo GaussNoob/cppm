@@ -12,8 +12,6 @@ jobs:
           python-version: '3.13'
       - run: rustup update stable --no-self-update
       - run: python -m pip install conan==2.34.0 cmake==3.31.6 ninja==1.11.1.4
-      - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo test --locked
       - run: cargo build --release --locked
       - name: Doctor from the repository
         run: target/release/cppm doctor
@@ -21,6 +19,10 @@ jobs:
       - name: Test Windows install (Windows PowerShell, as in release.yml)
         shell: powershell
         run: ./scripts/test-install.ps1
-      - name: Test Windows install (PowerShell 7, as in ci.yml)
-        shell: pwsh
-        run: ./scripts/test-install.ps1
+      - name: Bootstrap test (as in release.yml)
+        shell: powershell
+        run: ./scripts/test-bootstrap.ps1
+      - run: python scripts/package.py
+      - run: choco install nsis -y --no-progress
+      - run: python scripts/package-windows-installer.py --makensis 'C:\Program Files (x86)\NSIS\makensis.exe'
+      - run: Get-ChildItem dist
