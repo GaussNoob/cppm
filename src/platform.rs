@@ -118,7 +118,10 @@ fn configure(command: &mut Command) -> Result<()> {
 mod windows {
     use anyhow::{Context, Result, anyhow, bail, ensure};
     use std::{
-        ffi::OsString, os::windows::process::CommandExt, path::PathBuf, process::Command,
+        ffi::OsString,
+        os::windows::process::CommandExt,
+        path::{Path, PathBuf},
+        process::Command,
         sync::OnceLock,
     };
 
@@ -205,11 +208,25 @@ mod windows {
             "aarch64" => "arm64",
             other => bail!("unsupported Windows host architecture '{other}'"),
         };
+        // VsDevCmd.bat expands PATH unquoted, so a directory containing `&`,
+        // `|` or `)` truncates it and later tools (Ninja, Python) disappear.
+        // Run it with only the Windows directories, then put the user's PATH
+        // back behind the entries Visual Studio added.
+        let system_root = std::env::var_os("SystemRoot")
+            .map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from);
+        let minimal = [
+            system_root.join("System32"),
+            system_root.clone(),
+            system_root.join(r"System32\Wbem"),
+            system_root.join(r"System32\WindowsPowerShell\v1.0"),
+        ];
         // The discovered path travels in an environment variable; the version
         // contains only validated numbers and dots, never command syntax.
         let output = Command::new("cmd.exe").args(["/D", "/U", "/V:OFF", "/S", "/C"])
             .raw_arg(format!(r#""call "%CPPM_VSDEVCMD%" -no_logo -arch={architecture} -host_arch={architecture} -vcvars_ver={toolset} >nul && set""#))
-            .env("CPPM_VSDEVCMD", script).output().context("cannot initialize the MSVC build environment")?;
+            .env("CPPM_VSDEVCMD", script)
+            .env("PATH", std::env::join_paths(&minimal)?)
+            .output().context("cannot initialize the MSVC build environment")?;
         ensure!(
             output.status.success(),
             "VsDevCmd.bat failed; check the MSVC toolchain and Windows SDK installation"
@@ -223,6 +240,7 @@ mod windows {
             .collect();
         let source =
             String::from_utf16(&utf16).context("invalid environment returned by VsDevCmd.bat")?;
+        let original = std::env::var_os("PATH").unwrap_or_default();
         let environment: Environment = source
             .lines()
             .filter_map(|line| {
@@ -230,7 +248,12 @@ mod windows {
                 if key.is_empty() {
                     return None;
                 }
-                Some((OsString::from(key), OsString::from(value)))
+                let value = if key.eq_ignore_ascii_case("PATH") {
+                    merge_path(value, &minimal, &original)
+                } else {
+                    OsString::from(value)
+                };
+                Some((OsString::from(key), value))
             })
             .collect();
         ensure!(
@@ -240,5 +263,24 @@ mod windows {
             "MSVC environment did not define VCINSTALLDIR"
         );
         Ok(environment)
+    }
+
+    /// Visual Studio's PATH entries first, then the user's original PATH. The
+    /// minimal Windows directories used to run VsDevCmd are dropped here: the
+    /// original PATH already lists them where the user put them.
+    fn merge_path(captured: &str, minimal: &[PathBuf], original: &std::ffi::OsStr) -> OsString {
+        let same = |a: &Path, b: &Path| {
+            a.as_os_str()
+                .to_string_lossy()
+                .trim_end_matches('\\')
+                .eq_ignore_ascii_case(b.as_os_str().to_string_lossy().trim_end_matches('\\'))
+        };
+        let added = std::env::split_paths(captured)
+            .filter(|entry| !entry.as_os_str().is_empty())
+            .filter(|entry| !minimal.iter().any(|minimal| same(entry, minimal)));
+        let entries: Vec<PathBuf> = added.chain(std::env::split_paths(original)).collect();
+        // join_paths only fails for entries containing `"`, which split_paths
+        // never yields; keep the original PATH if it ever does.
+        std::env::join_paths(entries).unwrap_or_else(|_| original.to_os_string())
     }
 }

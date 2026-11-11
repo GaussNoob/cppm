@@ -9,8 +9,14 @@ try {
     if ($entries.Count -ne 1) { throw 'Installer did not persist exactly one PATH entry.' }
     $version = & (Join-Path $directory 'cppm.exe') --version
     if ($LASTEXITCODE -ne 0 -or $version -notmatch '^cppm ') { throw 'Installed binary failed.' }
-    $report = & (Join-Path $directory 'cppm.exe') doctor --json | ConvertFrom-Json
-    if ($LASTEXITCODE -ne 0 -or -not $report.ok) { throw 'Installed binary failed the native compiler probe.' }
+    $doctor = & (Join-Path $directory 'cppm.exe') doctor --json
+    $doctorExit = $LASTEXITCODE
+    $report = ($doctor -join "`n") | ConvertFrom-Json
+    if ($doctorExit -ne 0 -or -not $report.ok) {
+        # Show which check failed; the JSON is otherwise swallowed by ConvertFrom-Json.
+        Write-Host ($doctor -join "`n")
+        throw 'Installed binary failed the native compiler probe.'
+    }
     & "$PSScriptRoot/uninstall.ps1" -InstallDir $directory
     if (Test-Path (Join-Path $directory 'cppm.exe')) { throw 'Uninstaller kept the binary.' }
     $entries = @([Environment]::GetEnvironmentVariable('Path', 'User') -split ';' | Where-Object { $_ -ieq $directory })
