@@ -460,7 +460,11 @@ mod tests {
             json!({"graph": {"nodes": {"1": {"recipe": "Cache", "package_folder": package}}}});
         let lock = json!({"requires": ["package/1.0#revision"]});
         let request = request(temp.path(), "default", "recipe");
-        let guard = |_: &Path| fs::File::open(temp.path()).ok();
+        // Stand-in for the store lock. A regular file: Windows cannot open a
+        // directory as a file.
+        let lock_file = temp.path().join("store.lock");
+        fs::write(&lock_file, "").unwrap();
+        let guard = |_: &Path| fs::File::open(&lock_file).ok();
         let store = |fast| {
             save(
                 &output,
