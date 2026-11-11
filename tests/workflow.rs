@@ -210,6 +210,26 @@ fn vscode_upgrades_generated_tasks_and_preserves_custom_tasks() {
     fs::write(&path, &custom).unwrap();
     assert!(!cppm(root, &["vscode"]).status.success());
     assert_eq!(fs::read(path).unwrap(), custom);
+
+    // Projects created before settings.json existed gain it from `cppm vscode`;
+    // commented (JSONC) settings and a user's own database path are kept.
+    let settings = root.join(".vscode/settings.json");
+    fs::remove_file(&settings).unwrap();
+    let _ = cppm(root, &["vscode"]);
+    let created: serde_json::Value = serde_json::from_slice(&fs::read(&settings).unwrap()).unwrap();
+    assert_eq!(
+        created["C_Cpp.default.compileCommands"],
+        "${workspaceFolder}/compile_commands.json"
+    );
+    for text in [
+        "{\n  // mine\n  \"editor.tabSize\": 4\n}\n",
+        "{\"C_Cpp.default.compileCommands\": \"build/compile_commands.json\"}",
+    ] {
+        fs::write(&settings, text).unwrap();
+        let output = cppm(root, &["vscode"]);
+        assert!(String::from_utf8_lossy(&output.stderr).contains("was preserved"));
+        assert_eq!(fs::read_to_string(&settings).unwrap(), text);
+    }
 }
 
 #[test]

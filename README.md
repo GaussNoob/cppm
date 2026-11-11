@@ -548,8 +548,15 @@ cppm configure --offline --frozen-lockfile
 ```
 
 Um `compile_commands.json` personalizado ou um link existente é preservado.
-A cópia atual do cppm fica também em `.cppm/compile_commands.json`; a extensão
-C/C++ da Microsoft pode usar esse caminho em `C_Cpp.default.compileCommands`.
+A cópia atual do cppm fica também em `.cppm/compile_commands.json`.
+
+Novos projetos incluem `.vscode/settings.json` apontando a extensão C/C++ da
+Microsoft para esse banco (`C_Cpp.default.compileCommands`), então o IntelliSense
+encontra os headers das dependências sem configuração. Em projetos antigos ou
+quando o VS Code abre uma pasta pai, `cppm vscode` adiciona a mesma chave ao
+`settings.json` existente; arquivos com comentários ou com outro banco já
+configurado são preservados. clangd (VS Code, Neovim, Helix, Zed, CLion) lê o
+`compile_commands.json` da raiz do projeto diretamente.
 Se o editor ainda mostrar dados antigos, execute `clangd: Restart language server`.
 A configuração do editor é uma etapa posterior à instalação; se o CMake falhar,
 as dependências instaladas são mantidas e o cppm indica como repetir essa etapa.

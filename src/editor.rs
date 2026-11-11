@@ -126,6 +126,39 @@ pub fn vscode_tasks(project_path: &str, target: Target) -> Value {
     json!({"version": "2.0.0", "tasks": [build, task("cppm: run", application), test, task("cppm: configure", "configure"), task("cppm: watch", "watch")]})
 }
 
+const COMPILE_COMMANDS: &str = "C_Cpp.default.compileCommands";
+
+/// Points the Microsoft C/C++ extension at the database cppm publishes, so
+/// IntelliSense finds dependency headers. clangd finds the file on its own.
+pub fn vscode_settings(project_path: &str) -> Value {
+    json!({ COMPILE_COMMANDS: format!("{project_path}/compile_commands.json") })
+}
+
+/// Adds the compile database to `.vscode/settings.json` without disturbing
+/// the user's settings. Returns false when the file is left as it is.
+fn merge_settings(path: &Path, project_path: &str) -> Result<bool> {
+    let generated = vscode_settings(project_path);
+    let Some(current) = read(path)? else {
+        let mut bytes = serde_json::to_vec_pretty(&generated)?;
+        bytes.push(b'\n');
+        write_atomic(path, &bytes)?;
+        return Ok(true);
+    };
+    // VS Code allows comments (JSONC). Rewriting such a file would drop them,
+    // so only plain JSON objects are extended.
+    let Ok(Value::Object(mut settings)) = serde_json::from_slice::<Value>(&current) else {
+        return Ok(false);
+    };
+    if settings.contains_key(COMPILE_COMMANDS) {
+        return Ok(settings[COMPILE_COMMANDS] == generated[COMPILE_COMMANDS]);
+    }
+    settings.insert(COMPILE_COMMANDS.into(), generated[COMPILE_COMMANDS].clone());
+    let mut bytes = serde_json::to_vec_pretty(&settings)?;
+    bytes.push(b'\n');
+    write_atomic(path, &bytes)?;
+    Ok(true)
+}
+
 pub fn vscode(project: &Project, workspace: &Path) -> Result<()> {
     let root = project.root.canonicalize()?;
     let workspace = workspace
@@ -142,6 +175,15 @@ pub fn vscode(project: &Project, workspace: &Path) -> Result<()> {
             relative.to_string_lossy().replace('\\', "/")
         )
     };
+    let settings = workspace.join(".vscode/settings.json");
+    if merge_settings(&settings, &project_path)? {
+        println!("VS Code IntelliSense: {}", settings.display());
+    } else {
+        eprintln!(
+            "{} was preserved; add \"{COMPILE_COMMANDS}\": \"{project_path}/compile_commands.json\" for IntelliSense.",
+            settings.display()
+        );
+    }
     let path = workspace.join(".vscode/tasks.json");
     let tasks = vscode_tasks(&project_path, project.manifest.package.target);
     // Existing custom tasks may contain comments and unrelated commands. Leave

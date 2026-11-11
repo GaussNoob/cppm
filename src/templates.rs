@@ -59,6 +59,14 @@ pub fn scaffold(name: String, template: Template) -> Scaffold {
         ),
     );
     files.insert(
+        ".vscode/settings.json",
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&editor::vscode_settings("${workspaceFolder}"))
+                .expect("VS Code settings serialization cannot fail")
+        ),
+    );
+    files.insert(
         "CMakeLists.txt",
         format!(
             r#"cmake_minimum_required(VERSION 3.24)

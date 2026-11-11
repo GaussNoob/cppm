@@ -437,7 +437,29 @@ fn vscode_tasks_build_and_run_the_project_from_a_parent_workspace_with_spaces() 
         .unwrap();
     let root = temp.path().join("my app");
     success(cppm(temp.path(), &["init", "my app", "--name", "hello"]));
+    // New projects point IntelliSense at the database cppm publishes.
+    let own: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".vscode/settings.json")).unwrap()).unwrap();
+    assert_eq!(
+        own["C_Cpp.default.compileCommands"],
+        "${workspaceFolder}/compile_commands.json"
+    );
+    // A parent workspace keeps its own settings and gains the project's database.
+    fs::create_dir(temp.path().join(".vscode")).unwrap();
+    fs::write(
+        temp.path().join(".vscode/settings.json"),
+        "{\"editor.tabSize\": 2}",
+    )
+    .unwrap();
     success(cppm(&root, &["vscode", "--workspace", ".."]));
+    let settings: serde_json::Value =
+        serde_json::from_slice(&fs::read(temp.path().join(".vscode/settings.json")).unwrap())
+            .unwrap();
+    assert_eq!(settings["editor.tabSize"], 2);
+    assert_eq!(
+        settings["C_Cpp.default.compileCommands"],
+        "${workspaceFolder}/my app/compile_commands.json"
+    );
     let path = temp.path().join(".vscode/tasks.json");
     let tasks: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     assert_eq!(tasks["tasks"][0]["group"]["isDefault"], true);
