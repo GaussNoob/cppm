@@ -4,10 +4,6 @@ on:
     branches: [debug-windows-release]
 jobs:
   windows:
-    strategy:
-      fail-fast: false
-      matrix:
-        shell: [powershell, pwsh]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -20,6 +16,10 @@ jobs:
       - name: Doctor from the repository
         run: target/release/cppm doctor
         continue-on-error: true
-      - name: Test Windows install (${{ matrix.shell }})
-        shell: ${{ matrix.shell }}
+      - name: Test Windows install (Windows PowerShell, as in release.yml)
+        shell: powershell
+        run: ./scripts/test-install.ps1
+        continue-on-error: true
+      - name: Test Windows install (PowerShell 7, as in ci.yml)
+        shell: pwsh
         run: ./scripts/test-install.ps1
