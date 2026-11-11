@@ -1,12 +1,17 @@
-use crate::{conan::InstallOptions, platform, process};
+use crate::{
+    conan::{Graph, InstallOptions},
+    platform, process,
+};
 use anyhow::{Context, Result, ensure};
 use clap::Subcommand;
 use serde::Serialize;
 use serde_json::Value;
 use std::{
+    collections::BTreeMap,
     fs::{self, File, TryLockError},
     path::{Path, PathBuf},
     process::Command,
+    sync::Mutex,
 };
 
 mod content;
@@ -60,7 +65,19 @@ fn capture(command: &mut Command) -> Result<Vec<u8>> {
     Ok(output.stdout)
 }
 
+// One command asks for the store several times (installation, registration,
+// execution lease). Its location cannot change while the process runs, and
+// every question used to cost a Conan start.
+static HOMES: Mutex<BTreeMap<Option<PathBuf>, PathBuf>> = Mutex::new(BTreeMap::new());
+
 pub fn home(options: &InstallOptions) -> Result<PathBuf> {
+    if let Some(home) = HOMES
+        .lock()
+        .ok()
+        .and_then(|homes| homes.get(&options.store_dir).cloned())
+    {
+        return Ok(home);
+    }
     // Ask Conan instead of guessing: this respects CONAN_HOME and Conan's
     // platform-specific configuration, and keeps existing packages available.
     let output = String::from_utf8(capture(command(options).args(["config", "home"]))?)?;
@@ -70,7 +87,16 @@ pub fn home(options: &InstallOptions) -> Result<PathBuf> {
         "Conan returned an invalid store location"
     );
     fs::create_dir_all(&home)?;
-    home.canonicalize().context("cannot locate shared store")
+    let home = home.canonicalize().context("cannot locate shared store")?;
+    remember_home(options, &home);
+    Ok(home)
+}
+
+/// Records a store location already confirmed for these options.
+pub fn remember_home(options: &InstallOptions, home: &Path) {
+    if let Ok(mut homes) = HOMES.lock() {
+        homes.insert(options.store_dir.clone(), home.to_path_buf());
+    }
 }
 
 pub fn lock(home: &Path) -> Result<File> {
@@ -97,11 +123,9 @@ pub fn clean_new_packages(
     graph_file: &Path,
     options: &InstallOptions,
 ) -> Result<()> {
-    let has_new_packages = graph["graph"]["nodes"].as_object().is_some_and(|nodes| {
-        nodes
-            .values()
-            .any(|node| matches!(node["binary"].as_str(), Some("Build" | "Download")))
-    });
+    let has_new_packages = Graph::new(graph)
+        .nodes()
+        .any(|node| matches!(node.binary(), Some("Build" | "Download")));
     if !has_new_packages {
         return Ok(());
     }

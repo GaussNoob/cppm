@@ -3,11 +3,16 @@ use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use std::{
     fs::{self, File},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
+    sync::OnceLock,
 };
 
 mod cache;
+pub mod graph;
+pub mod versions;
+
+pub use graph::Graph;
 
 #[derive(Clone, Debug)]
 pub struct InstallOptions {
@@ -30,19 +35,31 @@ fn command(options: &InstallOptions) -> Result<Command> {
     Ok(command)
 }
 
-fn initialize(project: &Project, options: &InstallOptions) -> Result<(PathBuf, File, String)> {
-    let version = command(options)?.arg("--version").output()
+/// The Conan version, checked once per process.
+fn version(options: &InstallOptions) -> Result<&'static str> {
+    static VERSION: OnceLock<String> = OnceLock::new();
+    if let Some(version) = VERSION.get() {
+        return Ok(version);
+    }
+    let output = command(options)?.arg("--version").output()
         .context("dependencies require Conan 2; install it with `pipx install conan` or `uv tool install conan`")?;
+    let version = String::from_utf8_lossy(&output.stdout).into_owned();
     ensure!(
-        version.status.success()
-            && String::from_utf8_lossy(&version.stdout).starts_with("Conan version 2."),
+        output.status.success() && version.starts_with("Conan version 2."),
         "cppm requires Conan 2"
     );
+    Ok(VERSION.get_or_init(|| version))
+}
+
+/// Locks the shared store and makes sure the selected profile can be read.
+fn initialize(project: &Project, options: &InstallOptions) -> Result<(PathBuf, File)> {
+    let home = store::home(options)?;
     // Conan's package cache is shared, but concurrent writes are not supported.
     // Keep this guard through resolution/installation, including profile detection.
-    let home = store::home(options)?;
     let guard = store::lock(&home)?;
-    if options.profile == "default" {
+    // `profile detect --exist-ok` is a no-op for an existing profile; skip
+    // starting Conan for it on every command after the first.
+    if options.profile == "default" && !home.join("profiles/default").is_file() {
         let mut detect = command(options)?;
         detect
             .args(["profile", "detect", "--exist-ok"])
@@ -52,11 +69,7 @@ fn initialize(project: &Project, options: &InstallOptions) -> Result<(PathBuf, F
         }
         process::run(&mut detect)?;
     }
-    Ok((
-        home,
-        guard,
-        String::from_utf8_lossy(&version.stdout).into_owned(),
-    ))
+    Ok((home, guard))
 }
 
 fn configure(command: &mut Command, project: &Project, release: bool, options: &InstallOptions) {
@@ -112,7 +125,8 @@ pub fn resolve_version(
     release: bool,
     options: &InstallOptions,
 ) -> Result<String> {
-    let (_home, _guard, _version) = initialize(project, options)?;
+    version(options)?;
+    let (_home, _guard) = initialize(project, options)?;
     let staging = tempfile::tempdir_in(project.root.join(".cppm"))?;
     let output = staging.path().join("graph.json");
     let mut command = command(options)?;
@@ -129,40 +143,28 @@ pub fn resolve_version(
         format!("cannot resolve '{name}' from Conan; check its recipe name or use name@version")
     })?;
     let graph: Value = serde_json::from_slice(&fs::read(output)?)?;
-    let version = graph["graph"]["nodes"]
-        .as_object()
-        .and_then(|nodes| {
-            nodes
-                .values()
-                .find(|node| node["name"] == name && node["context"] == "host")
-        })
-        .and_then(|node| node["version"].as_str())
+    let version = Graph::new(&graph)
+        .host(name)
+        .and_then(|node| node.version())
         .context("Conan did not return the resolved package version")?;
     crate::manifest::validate_version(version)?;
     Ok(version.to_owned())
 }
 
-pub fn install(
-    project: &Project,
-    release: bool,
-    options: &InstallOptions,
-    previous: Option<&Value>,
-    reuse: bool,
-) -> Result<Installed> {
-    let (home, guard, version) = initialize(project, options)?;
-    let mode = if release { "release" } else { "debug" };
-    let output = project.root.join(".cppm/conan").join(mode);
-    fs::create_dir_all(&output)?;
-    let staging = tempfile::tempdir_in(project.root.join(".cppm"))?;
-    let recipe = staging.path().join("conanfile.py");
+fn output_directory(root: &Path, release: bool) -> PathBuf {
+    root.join(".cppm/conan")
+        .join(if release { "release" } else { "debug" })
+}
+
+/// The consumer recipe that requires the manifest's packages.
+fn recipe(project: &Project) -> Result<String> {
     let requires: Vec<_> = project
         .manifest
-        .dependencies
-        .iter()
+        .requirements()
         .map(|(name, dependency)| format!("{name}/{}", dependency.version()))
         .collect();
     let mut defaults = Vec::new();
-    if project.manifest.dependencies.contains_key("opencv") {
+    if project.manifest.requires("opencv") {
         // Images work without building a complete audio/video codec stack.
         // A Conan profile can opt in with opencv/*:with_ffmpeg=True.
         defaults.push("\"opencv/*:with_ffmpeg\": False");
@@ -172,49 +174,118 @@ pub fn install(
         #[cfg(target_os = "linux")]
         defaults.push("\"opencv/*:with_v4l\": True");
     }
-    if project.manifest.dependencies.contains_key("qt") {
+    if project.manifest.requires("qt") {
         // Qt's dynamic libraries keep the framework's bundled implementation
         // details inside Qt instead of exposing missing static recipe metadata.
         defaults.extend(["\"qt/*:shared\": True", "\"qt/*:with_pq\": False"]);
     }
-    let contents = include_str!("conanfile.py")
+    Ok(include_str!("conanfile.py")
         .replace("@CPPM_REQUIRES@", &serde_json::to_string(&requires)?)
-        .replace("@CPPM_OPTIONS@", &format!("{{{}}}", defaults.join(", ")));
-    let key = (|| -> Result<Option<String>> {
-        let mut profile = command(options)?;
-        profile.args(["profile", "show", "--format=json"]);
-        configure_profiles(&mut profile, project, release, options);
-        let profiles = profile.output()?;
-        if !profiles.status.success() {
-            return Ok(None);
-        }
-        let profiles: Value = serde_json::from_slice(&profiles.stdout)?;
-        Ok(Some(cache::key(
-            &home,
-            &version,
-            &contents,
-            &serde_json::to_vec(&profiles)?,
-        )?))
-    })()
-    .ok()
-    .flatten();
-    if reuse
-        && let Some(cached) = key
-            .as_deref()
-            .and_then(|key| cache::read(&output, key, previous))
-    {
+        .replace("@CPPM_OPTIONS@", &format!("{{{}}}", defaults.join(", "))))
+}
+
+/// The profiles as Conan resolves them, including `include()` and templates.
+fn resolved_profiles(
+    project: &Project,
+    release: bool,
+    options: &InstallOptions,
+) -> Result<Option<Vec<u8>>> {
+    let mut profile = command(options)?;
+    profile.args(["profile", "show", "--format=json"]);
+    configure_profiles(&mut profile, project, release, options);
+    let profiles = profile.output()?;
+    if !profiles.status.success() {
+        return Ok(None);
+    }
+    let profiles: Value = serde_json::from_slice(&profiles.stdout)?;
+    Ok(Some(serde_json::to_vec(&profiles)?))
+}
+
+/// The last graph resolved for this project, without running Conan.
+pub fn resolved_graph(root: &Path, release: bool) -> Option<(Value, Value)> {
+    cache::graph(&output_directory(root, release))
+}
+
+pub fn install(
+    project: &Project,
+    release: bool,
+    options: &InstallOptions,
+    previous: Option<&Value>,
+    reuse: bool,
+) -> Result<Installed> {
+    let mode = if release { "release" } else { "debug" };
+    let output = output_directory(&project.root, release);
+    let contents = recipe(project)?;
+    let request = cache::Request {
+        root: &project.root,
+        profile: &options.profile,
+        store_dir: options.store_dir.as_deref(),
+        release,
+        cpp_standard: project.manifest.package.cpp_standard,
+        recipe: &contents,
+    };
+    let reused = |home: PathBuf, guard: File, cached: cache::Cached| -> Result<Installed> {
         if options.verbose {
             eprintln!(
                 "Reusing installed Conan dependencies ({mode}; profile {}).",
                 options.profile
             );
         }
-        return Ok(Installed {
+        Ok(Installed {
             registration: store::Pending::new(home, guard, &cached.graph, options, release)?,
             lock: cached.lock,
             graph: cached.graph,
-        });
+        })
+    };
+    // An unchanged build is the common case. Prove nothing Conan reads has
+    // changed since the last validated installation and skip starting it.
+    if reuse
+        && let Some((cached, guard)) =
+            cache::read_fast(&output, &request, previous, |home| store::lock(home).ok())
+    {
+        let home = cached.home.clone();
+        store::remember_home(options, &home);
+        return reused(home, guard, cached);
     }
+    fs::create_dir_all(&output)?;
+    let (home, guard) = initialize(project, options)?;
+    // Both queries only read; run them together to pay for one Conan start.
+    let (version, profiles) = std::thread::scope(|scope| {
+        let profiles = scope.spawn(|| resolved_profiles(project, release, options));
+        (version(options), profiles.join())
+    });
+    let version = version?;
+    let key = profiles
+        .ok()
+        .and_then(Result::ok)
+        .flatten()
+        .and_then(|profiles| cache::key(&home, version, &contents, &profiles).ok());
+    if reuse
+        && let Some(cached) = key
+            .as_deref()
+            .and_then(|key| cache::read(&output, key, previous))
+    {
+        // Conan confirmed the installation; let the next build skip the query.
+        let fast = cache::fast_key(&request, &home).ok().flatten();
+        if fast.is_some()
+            && let Err(error) = cache::save(
+                &output,
+                cache::Snapshot {
+                    key: key.clone().unwrap_or_default(),
+                    fast,
+                    home: &home,
+                    lock: &cached.lock,
+                    graph: &cached.graph,
+                },
+            )
+            && options.verbose
+        {
+            eprintln!("Could not cache dependency preparation: {error:#}");
+        }
+        return reused(home, guard, cached);
+    }
+    let staging = tempfile::tempdir_in(project.root.join(".cppm"))?;
+    let recipe = staging.path().join("conanfile.py");
     write_atomic(&recipe, contents.as_bytes())?;
     let output_lock = staging.path().join("resolved.lock");
     let graph_file = staging.path().join("graph.json");
@@ -257,7 +328,18 @@ pub fn install(
         );
     }
     if let Some(key) = key
-        && let Err(error) = cache::save(&output, key, &lock, &graph)
+        && let Err(error) = cache::save(
+            &output,
+            cache::Snapshot {
+                key,
+                // Computed after the installation: Conan creates its default
+                // configuration files the first time it uses a home.
+                fast: cache::fast_key(&request, &home).ok().flatten(),
+                home: &home,
+                lock: &lock,
+                graph: &graph,
+            },
+        )
         && options.verbose
     {
         eprintln!("Could not cache dependency preparation: {error:#}");

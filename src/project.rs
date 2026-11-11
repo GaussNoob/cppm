@@ -53,10 +53,13 @@ impl Project {
 
     pub fn save_manifest(&self) -> Result<()> {
         self.manifest.validate()?;
-        write_atomic(
-            &self.root.join(FILE_NAME),
-            toml::to_string_pretty(&self.manifest)?.as_bytes(),
-        )
+        let path = self.root.join(FILE_NAME);
+        let existing = match fs::read_to_string(&path) {
+            Ok(source) => Some(source),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(error.into()),
+        };
+        write_atomic(&path, self.manifest.render(existing.as_deref())?.as_bytes())
     }
 }
 

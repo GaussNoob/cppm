@@ -37,13 +37,18 @@ compatibilidade de binários, CMake configura targets e Ninja compila.
 
 | Módulo | Responsabilidade |
 | --- | --- |
-| `cli` | Argumentos, despacho de comandos e saída para o usuário |
+| `cli` | Argumentos, despacho de comandos e saída para o usuário; comandos globais e de projeto são enums separados |
 | `update` | Consulta assíncrona de novas releases, cache de avisos e atualização da própria CLI |
 | `manifest` | Modelo do projeto, leitura TOML e validação |
 | `packages` | Catálogo pequeno e mapeamento de pacotes para targets CMake |
 | `project` | Descoberta da raiz, criação do projeto e exclusão mútua |
-| `dependencies` | Operações de adicionar/remover/instalar, lockfile e integração CMake |
+| `dependencies` | Operações de adicionar/remover/instalar/atualizar, lockfile e integração CMake |
 | `conan` | Adaptação do manifesto à CLI do Conan 2 |
+| `conan::graph` | Visão tipada, somente leitura, do grafo JSON retornado pelo Conan |
+| `conan::cache` | Snapshot da instalação e as duas chaves que permitem reutilizá-la |
+| `conan::versions` | Ordenação de versões e consulta das versões disponíveis |
+| `inspect` | Relatórios somente leitura: `list`, `why`, `licenses` e `outdated` |
+| `suggest` | Sugestões para nomes de scripts e pacotes digitados errado |
 | `platform` | Ambiente nativo de build; descoberta e ativação MSVC no Windows |
 | `protection` | Preset obf, injeção CMake, validação de aplicação e plugins LLVM |
 | `doctor` | Versões das ferramentas e prova de compilação/execução C++ com relatório JSON |
@@ -62,6 +67,11 @@ e um único caminho de build, portanto não há traits ou factories para backend
 hipotéticos. A separação do adaptador Conan permite introduzir outra
 implementação quando houver um segundo caso real.
 
+O relatório JSON do Conan é guardado como recebido, pois vai para snapshots e
+para o lockfile. Somente `conan::graph` conhece seu formato: mapeamento CMake,
+ajustes de receitas, registro no armazenamento e os relatórios consultam nós,
+opções, licenças e arestas por essa visão, em vez de indexar o JSON em cada módulo.
+
 ## Adicionar uma dependência
 
 1. Adquire o lock do projeto e relê o manifesto.
@@ -74,6 +84,13 @@ implementação quando houver um segundo caso real.
 Falhas de resolução ou compilação da dependência não alteram o manifesto nem o
 lockfile versionado. Conan pode ter adicionado arquivos ao seu cache ou à pasta
 interna de geradores antes de falhar. O próximo comando reinstala a integração.
+
+O manifesto é editado com `toml_edit`: apenas as entradas de dependências que
+mudaram são reescritas, preservando comentários, ordem e formatação. Uma tabela
+que estava em ordem alfabética continua ordenada; uma ordem manual é mantida e
+o pacote novo entra no final. `[dev-dependencies]` é criada logo após
+`[dependencies]`. O resultado é relido e comparado com o manifesto em memória;
+qualquer divergência usa a serialização completa.
 
 Cada arquivo é escrito em um temporário no mesmo filesystem e renomeado.
 Isso evita arquivos truncados; não representa uma transação entre vários
@@ -204,8 +221,42 @@ e registro de receitas editáveis.
 Includes e expressões dos perfis são resolvidos pelo próprio Conan. A chave
 persiste apenas hashes dos perfis e do ambiente consultado.
 
+### Reuso sem iniciar o Conan
+
+Iniciar o Conan custa de 0,1 s a 0,3 s, e a chave acima exigia quatro chamadas
+(`--version`, `config home`, `profile detect`, `profile show`), mais uma para o
+lease de `exec`. O snapshot agora guarda também uma chave rápida, calculada só
+com leituras de arquivos, que descreve tudo o que o Conan leria para produzir a
+chave principal:
+
+- o executável `conan` resolvido no PATH (caminho real, tamanho e data);
+  instaladores reescrevem o launcher ao instalar ou atualizar;
+- `version.txt` da home, onde o Conan registra a versão que a migrou;
+- o perfil selecionado e todos os perfis alcançados por `include()`, seguindo a
+  ordem de busca do Conan;
+- `global.conf`, `settings.yml`, `settings_user.yml`, receitas editáveis e
+  `extensions/` da home;
+- `--store-dir`, `CONAN_HOME`, arquivos `.conanrc` dos diretórios ancestrais e
+  o ambiente;
+- a receita consumidora, o modo e o padrão C++.
+
+Se a chave rápida coincide, o build trava o armazenamento e segue direto para as
+verificações de lockfile, geradores e manifests dos pacotes. Caso contrário, o
+Conan é consultado como antes e, se confirmar a instalação, a chave rápida é
+regravada. Um perfil com `{{ }}` ou `{% %}` pode ler qualquer coisa, então não
+recebe chave rápida e continua sendo resolvido pelo Conan a cada build. Um
+include ausente também devolve a decisão (e a mensagem de erro) ao Conan.
+
+No caminho lento, a home é memorizada durante o processo, `profile detect` só
+executa quando o perfil `default` ainda não existe e `--version`/`profile show`
+rodam em paralelo.
+
 O snapshot guarda os metadados do grafo necessários à integração/registro e o
 lockfile; ambientes e configurações extras do relatório Conan são descartados.
+Opções dos pacotes são mantidas porque selecionam os ajustes CMake de receitas
+(SDL/Wayland, libpq/GSSAPI): sem elas, um build reutilizado gerava uma
+integração diferente da instalação original. Arestas e licenças são mantidas
+para `list`, `why` e `licenses`.
 Ele só é reutilizado se o lock atual coincidir,
 os arquivos dos geradores continuarem idênticos e os manifests dos pacotes locais
 estiverem disponíveis e inalterados. Receitas editáveis não usam esse atalho.
@@ -270,7 +321,9 @@ os snapshots anteriores. Remover a última dependência libera as referências e
 todos os stores registrados no projeto, sem precisar executar Conan.
 
 Após registrar, novos arquivos de payload entram em um pool endereçado por
-conteúdo BLAKE3 e permissões de leitura/execução. Hard links substituem somente
+conteúdo BLAKE3 e permissões de leitura/execução. Os hashes de um pacote são
+calculados em paralelo; a criação dos links continua sequencial. Um arquivo que
+já é o próprio objeto do pool não é lido uma segunda vez para conferência. Hard links substituem somente
 arquivos com conteúdo verificado, via rename atômico no diretório de destino.
 Os bytes e metadados de identificação Conan permanecem iguais. O payload passa
 a ser somente leitura, conforme o contrato do cache de pacotes; links simbólicos
@@ -389,3 +442,26 @@ para o compilador incluído no mesmo pacote do runtime. Isso evita selecionar
 um `protoc` incompatível previamente instalado no PATH. Os builds com schemas
 são verificados gerando, compilando e serializando uma mensagem real.
 
+## Dependências de desenvolvimento e relatórios
+
+`[dev-dependencies]` entra no mesmo `conanfile` e no mesmo lockfile das
+dependências da aplicação: há uma única resolução, portanto uma única versão de
+cada pacote transitivo. A separação acontece na integração CMake, que declara
+`cppm_dependencies` e `cppm_dev_dependencies`. Ambos existem mesmo vazios, para
+que um `CMakeLists.txt` possa referenciá-los antes do primeiro pacote. No
+`cppm.lock`, a seção `dev-dependencies` só é gravada quando existe, mantendo
+inalterados os lockfiles de projetos que não a usam.
+
+`list`, `why` e `licenses` leem o grafo do snapshot. Antes de responder, comparam
+o lock do snapshot e as duas seções do manifesto com o `cppm.lock`; qualquer
+diferença resulta em um pedido de `cppm install`, nunca em uma árvore antiga.
+`list` sem profundidade responde apenas com o manifesto.
+
+`outdated` executa `conan list nome/*` para cada dependência direta, até oito
+consultas simultâneas, no cache e nos remotos habilitados. Sem remotos
+habilitados ou com `--offline`, usa só o cache. A ordenação segue o Conan:
+identificadores numéricos comparados como números, sufixos alfabéticos depois
+(`1.92.9b` > `1.92.9`) e pré-releases antes da versão final. Pré-releases e
+receitas com nomes de data (`cci.AAAAMMDD`) só são oferecidas a quem já usa uma.
+`upgrade` usa o mesmo relatório, altera as versões em memória e passa pelo fluxo
+de `add`: instalação, depois gravação de manifesto e lockfile.

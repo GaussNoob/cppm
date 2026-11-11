@@ -1,5 +1,6 @@
-use crate::manifest::{
-    Dependency, DependencyDetails, valid_name, validate_cmake_token, validate_version,
+use crate::{
+    conan::Graph,
+    manifest::{Dependency, DependencyDetails, valid_name, validate_cmake_token, validate_version},
 };
 use anyhow::{Context, Result, ensure};
 use serde_json::Value;
@@ -168,6 +169,28 @@ pub const CATALOG: &[PackageInfo] = &[
     },
 ];
 
+/// `cppm packages`: the built-in catalog, without contacting Conan.
+pub fn print() -> Result<()> {
+    for entry in CATALOG {
+        println!(
+            "{}@{}  {} ({})",
+            entry.name, entry.version, entry.target, entry.cmake_package
+        );
+    }
+    println!("Aliases:");
+    for (alias, package) in ALIASES {
+        let (_, version) = parse_spec(alias)?;
+        match version {
+            Some(version) => println!("  {alias}={package}@{version}"),
+            None => println!("  {alias}={package}"),
+        }
+    }
+    println!("Other Conan recipes are resolved automatically by name.");
+    println!("Common examples: sdl, curl, sfml, raylib, glfw, glm, openssl");
+    println!("Database packages install client libraries; database servers run separately.");
+    Ok(())
+}
+
 pub fn canonical_name(name: &str) -> String {
     let name = name.to_ascii_lowercase();
     ALIASES
@@ -228,25 +251,19 @@ pub fn mapping(
     match dependency {
         Dependency::Detailed(d) => Ok((d.cmake_package.clone(), d.targets.clone())),
         Dependency::Version(_) => {
-            let node = graph["graph"]["nodes"]
-                .as_object()
-                .and_then(|nodes| {
-                    nodes
-                        .values()
-                        .find(|node| node["name"] == name && node["context"] == "host")
-                })
+            let node = Graph::new(graph)
+                .host(name)
                 .with_context(|| format!("Conan did not return metadata for '{name}'"))?;
-            let properties = &node["cpp_info"]["root"]["properties"];
             ensure!(
-                properties["cmake_find_mode"] != "none",
+                node.cmake_property("cmake_find_mode") != Some("none"),
                 "'{name}' does not expose a CMake package"
             );
-            let package = properties["cmake_file_name"]
-                .as_str()
+            let package = node
+                .cmake_property("cmake_file_name")
                 .unwrap_or(name)
                 .to_owned();
-            let target = properties["cmake_target_name"]
-                .as_str()
+            let target = node
+                .cmake_property("cmake_target_name")
                 .map(str::to_owned)
                 .unwrap_or_else(|| format!("{name}::{name}"));
             validate_cmake_token(&package)?;
@@ -257,41 +274,28 @@ pub fn mapping(
 }
 
 pub fn cmake_fixes(graph: &Value) -> String {
-    let needs_libdecor = cfg!(target_os = "linux")
-        && graph["graph"]["nodes"].as_object().is_some_and(|nodes| {
-            nodes.values().any(|node| {
-                let options = &node["options"];
-                node["name"] == "sdl"
-                    && node["context"] == "host"
-                    && node["version"]
-                        .as_str()
-                        .is_some_and(|version| version.starts_with("3.4."))
-                    && (options["wayland"] == "True" || options["wayland"] == true)
-                    && (options["shared"] == "False" || options["shared"] == false)
-            })
-        });
-    let needs_gssapi = cfg!(target_os = "linux")
-        && graph["graph"]["nodes"].as_object().is_some_and(|nodes| {
-            nodes.values().any(|node| {
-                node["name"] == "libpq"
-                    && node["context"] == "host"
-                    && node["version"] == "17.11"
-                    && (node["options"]["shared"] == "False" || node["options"]["shared"] == false)
-            })
-        });
+    let graph = Graph::new(graph);
+    let static_host = |name: &str| {
+        graph
+            .host(name)
+            .filter(|node| node.option_is("shared", false))
+    };
     let mut fixes = String::new();
-    if needs_libdecor {
+    if cfg!(target_os = "linux")
+        && static_host("sdl").is_some_and(|sdl| {
+            sdl.version()
+                .is_some_and(|version| version.starts_with("3.4."))
+                && sdl.option_is("wayland", true)
+        })
+    {
         fixes.push_str(include_str!("../cmake/sdl-wayland.cmake"));
     }
-    if needs_gssapi {
+    if cfg!(target_os = "linux")
+        && static_host("libpq").is_some_and(|libpq| libpq.version() == Some("17.11"))
+    {
         fixes.push_str(include_str!("../cmake/postgresql-gssapi.cmake"));
     }
-    let has_protobuf = graph["graph"]["nodes"].as_object().is_some_and(|nodes| {
-        nodes
-            .values()
-            .any(|node| node["name"] == "protobuf" && node["context"] == "host")
-    });
-    if has_protobuf {
+    if graph.host("protobuf").is_some() {
         fixes.push_str(include_str!("../cmake/protobuf-protoc.cmake"));
     }
     fixes

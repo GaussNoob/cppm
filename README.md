@@ -59,6 +59,7 @@ instalação, PATH, build C++ com MSVC e desinstalação. `cppm` é o nome provi
 - [Guia Windows: ferramentas, DLLs, diagnóstico e validação](docs/windows.md)
 - [Arquitetura e decisões de implementação](docs/architecture.md)
 - [Medições de desempenho dos builds incrementais](docs/performance.md)
+- [Roadmap: o que falta para a paridade com o pnpm](docs/roadmap.md)
 
 ## Instalação
 
@@ -195,7 +196,14 @@ diagnósticos. A aba Comandos oferece a criação de um projeto na pasta atual.
 | `cppm install fmt`          | Atalho para adicionar uma dependência                    |
 | `cppm install fmt json eigen` | Instala vários pacotes em uma operação; preserva manifesto e lockfile se falhar |
 | `cppm install`              | Instala as dependências do manifesto                     |
+| `cppm add -D catch2`        | Adiciona em `[dev-dependencies]`: só os testes linkam     |
 | `cppm remove fmt`           | Remove a dependência direta e atualiza o lockfile        |
+| `cppm ci`                   | Instala exatamente o `cppm.lock`; falha em vez de regravá-lo |
+| `cppm list`                 | Lista as dependências diretas (`ls`); `--all` mostra a árvore resolvida |
+| `cppm why zlib`             | Mostra quais dependências trazem um pacote para o projeto |
+| `cppm licenses`             | Agrupa as bibliotecas do grafo pela licença declarada     |
+| `cppm outdated`             | Compara as dependências diretas com as versões disponíveis |
+| `cppm upgrade [pacote]`     | Atualiza dentro da versão major (`up`); `--latest` cruza majors |
 | `cppm run`                  | Lista os scripts                                         |
 | `cppm run dev`              | Compila em Debug e executa                               |
 | `cppm run build`            | Compila em Release                                       |
@@ -281,6 +289,38 @@ dev = ["cppm", "exec", "--"]
 build = ["cppm", "build", "--release"]
 test = ["cppm", "test", "--"]
 ```
+
+`add`, `remove` e `upgrade` editam somente as entradas alteradas: comentários,
+ordem das chaves e formatação do restante do `cppm.toml` são preservados.
+
+### Dependências de desenvolvimento
+
+Frameworks de teste e ferramentas não precisam ser linkados na aplicação:
+
+```sh
+cppm add -D catch2
+```
+
+```toml
+[dependencies]
+fmt = "11.0.2"
+
+[dev-dependencies]
+catch2 = "3.7.1"
+```
+
+O cppm gera dois targets CMake: `cppm_dependencies`, usado pela aplicação, e
+`cppm_dev_dependencies`, para os executáveis de teste:
+
+```cmake
+add_executable(unit tests/unit.cpp)
+target_link_libraries(unit PRIVATE cppm_dependencies cppm_dev_dependencies)
+add_test(NAME unit COMMAND unit)
+```
+
+Os headers de uma dependência de desenvolvimento não ficam visíveis para a
+aplicação. Repetir `cppm add` com ou sem `-D` move o pacote de seção. As duas
+seções entram no mesmo grafo Conan e no mesmo `cppm.lock`.
 
 Scripts em arrays são executados diretamente, sem shell, em Linux e Windows.
 Scripts em string continuam disponíveis: usam `sh` no Linux e Windows PowerShell
@@ -414,6 +454,25 @@ diretórios e opções. A CLI não o reescreve depois de `init`. `exec` espera q
 o target executável tenha o mesmo nome de `package.name` e use o diretório de
 saída configurado pela CLI.
 
+### Inspecionar e atualizar
+
+```sh
+cppm list --all        # árvore resolvida, incluindo dependências transitivas
+cppm why zlib          # app > boost 1.91.0 > zlib 1.3.1
+cppm licenses          # bibliotecas agrupadas por licença declarada
+cppm outdated          # Current, Wanted (mesma major) e Latest
+cppm upgrade           # move todas para Wanted
+cppm upgrade sdl --latest
+```
+
+`list`, `why` e `licenses` leem o grafo gravado pela última instalação: não
+iniciam o Conan nem acessam a rede. Se o manifesto ou o lockfile mudaram desde
+então, o comando pede `cppm install` em vez de mostrar uma resolução antiga.
+Todos aceitam `--json`. `outdated` consulta o cache local e os remotos Conan
+habilitados; com `--offline`, apenas o cache. `upgrade` sem `--latest` nunca
+troca a versão major (em versões `0.x`, nunca troca a minor), reinstala o grafo
+e só grava manifesto e lockfile se a instalação terminar.
+
 ## Bibliotecas compartilhadas entre projetos
 
 As bibliotecas ficam em um único armazenamento por usuário, normalmente
@@ -530,6 +589,7 @@ cppm exec --offline --frozen-lockfile
 ```
 
 `--frozen-lockfile` exige um lockfile existente e compatível, sem regravá-lo.
+`cppm ci` é o atalho para `cppm install --frozen-lockfile` em pipelines.
 `--offline` impede consultas aos remotos Conan; receitas, fontes e ferramentas
 necessárias ao build precisam estar disponíveis localmente. Uma receita pode
 precisar baixar fontes ao compilar um binário ausente, portanto isso não é um
@@ -541,8 +601,11 @@ explícito e use `--profile nome-ou-caminho`. Nesta versão, o mesmo perfil é
 aplicado aos contextos host e build: cross-compilation fica fora do escopo.
 
 Debug e Release têm diretórios próprios em `.cppm/build/` e `.cppm/conan/`.
-Builds reutilizam uma instalação Conan válida após verificar o perfil resolvido,
-o lockfile, arquivos gerados e os pacotes locais. Alterações invalidam esse
+Builds reutilizam uma instalação Conan válida após verificar o perfil, o
+lockfile, arquivos gerados e os pacotes locais. Quando nada do que o Conan lê
+mudou (executável, home, configuração e arquivos de perfil), essa verificação
+não inicia o Conan: um build sem alterações com dependências custa o mesmo que
+um sem dependências. Perfis com templates Jinja são sempre resolvidos pelo Conan. Alterações invalidam esse
 reaproveitamento automaticamente. A configuração CMake também é reaproveitada;
 mudanças de toolchain, ambiente ou configuração exigem um cache novo. O Ninja
 acompanha fontes e headers. `cppm install` sempre prepara dependências novamente;
@@ -607,10 +670,12 @@ A organização e as decisões de implementação estão em
 - O binário Windows passou em 13 testes no Wine; MSVC e PowerShell ainda exigem
   execução no runner Windows. macOS ainda não tem validação.
 - Uma aplicação principal por projeto; targets adicionais são definidos no CMake.
-- Dependências com versões exatas; sem resolver faixas SemVer próprio.
+- Dependências com versões exatas no manifesto; `cppm upgrade` aplica a regra
+  de compatibilidade (mesma major), mas faixas SemVer não são gravadas.
 - O template WASM usa a biblioteca padrão; dependências Conan para WASM ainda
   precisam de uma integração de cross-compilation própria.
-- Sem watch, workspaces, registro ou distribuição próprios de pacotes C++.
-- `add` e `remove` serializam o manifesto em TOML novamente; comentários dele
-  não são preservados nesta versão.
+- Sem workspaces, registro ou distribuição próprios de pacotes C++.
+- A interface `cppm ui` ainda mostra apenas `[dependencies]`.
+
+O que falta para a paridade com o pnpm está em [docs/roadmap.md](docs/roadmap.md).
 

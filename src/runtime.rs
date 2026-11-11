@@ -15,7 +15,7 @@ pub fn configure(
     release: bool,
     verbose: bool,
 ) -> Result<()> {
-    if project.manifest.dependencies.is_empty() {
+    if !project.manifest.has_requirements() {
         return Ok(());
     }
     let path = project
@@ -32,7 +32,7 @@ pub fn configure(
         "unsupported runtime environment format"
     );
     apply(command, &environment.variables);
-    if project.manifest.dependencies.contains_key("opencv") {
+    if project.manifest.requires("opencv") {
         opencv_logging(command, std::env::var_os("OPENCV_LOG_LEVEL"), verbose);
     }
     Ok(())
