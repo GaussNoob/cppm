@@ -13,7 +13,7 @@ sh install-cppm.sh
 ```
 
 O destino padrão é `~/.local/bin/cppm`. Para escolher outra pasta ou uma versão
-específica, use `sh install-cppm.sh --prefix "$HOME/programas" --version 0.4.2`.
+específica, use `sh install-cppm.sh --prefix "$HOME/programas" --version 0.5.0`.
 Se necessário, adicione `~/.local/bin` ao PATH do shell. No fish, execute
 `fish_add_path ~/.local/bin`; no Bash/Zsh, acrescente `export PATH="$HOME/.local/bin:$PATH"`
 ao arquivo de configuração do shell e abra outro terminal.
@@ -27,7 +27,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install-cppm.ps1
 
 O script instala a CLI em `%LOCALAPPDATA%\Programs\cppm\bin` e configura o
 PATH do usuário. Use `-InstallDir 'D:\Minhas ferramentas\cppm'` para personalizar,
-`-NoPath` para preservar o PATH, ou `-Version 0.4.2` para fixar uma release.
+`-NoPath` para preservar o PATH, ou `-Version 0.5.0` para fixar uma release.
 `-WithDependencies` também prepara Python, Conan, CMake, Ninja, MSVC/Windows SDK
 e Emscripten/Node; essa opção pode pedir administrador para o compilador.
 Abra um terminal novo e execute `cppm doctor`.
@@ -61,7 +61,7 @@ segundo plano, sem esperar a rede, no máximo uma vez a cada seis horas.
 Quando já existe uma versão nova no cache, cada uso mostra:
 
 ```text
-cppm: Atualização disponível: 0.4.2 → 0.4.3. Execute `cppm update`.
+cppm: Atualização disponível: 0.5.0 → 0.5.1. Execute `cppm update`.
 ```
 
 Na primeira consulta, o aviso aparece na próxima execução; `cppm ui` também
@@ -75,7 +75,7 @@ no Linux e `%LOCALAPPDATA%\cppm\update.json` no Windows.
 
 ## Windows x64
 
-O caminho recomendado é abrir `cppm-0.4.2-windows-x86_64-setup.exe` e seguir o
+O caminho recomendado é abrir `cppm-0.5.0-windows-x86_64-setup.exe` e seguir o
 assistente. Ele instala o cppm, baixa Python 3.13, Conan 2, CMake, Ninja,
 Emscripten 6.0.13 e seu Node.js em um ambiente próprio e instala MSVC + Windows SDK se faltarem. Configura o PATH do
 usuário e valida a compilação C++ antes de concluir. Depois, abra um terminal novo:
@@ -103,7 +103,7 @@ não execute `cppm init` novamente. O SDK privado fica em `tools\emsdk` e é
 localizado automaticamente, mesmo com uma pasta de instalação personalizada.
 
 Consulte o [guia Windows](windows.md) para checksums e detalhes. O pacote
-`cppm-0.4.2-windows-x86_64.zip` continua disponível para instalar somente a CLI:
+`cppm-0.5.0-windows-x86_64.zip` continua disponível para instalar somente a CLI:
 
 Extraia o pacote Windows e execute no PowerShell, dentro da pasta extraída:
 
@@ -205,8 +205,8 @@ em `scripts/windows-tools.json`.
 3. Crie e envie uma tag que corresponda exatamente à versão, por exemplo:
 
 ```sh
-git tag v0.4.2
-git push origin v0.4.2
+git tag v0.5.0
+git push origin v0.5.0
 ```
 
 O workflow `.github/workflows/release.yml` valida a tag contra o `Cargo.toml`,

@@ -3,7 +3,7 @@
 ## Instalação completa
 
 Na [última release](https://github.com/GaussNoob/cppm/releases/latest), baixe
-`cppm-0.4.2-windows-x86_64-setup.exe` e abra o assistente. Ele prepara a CLI,
+`cppm-0.5.0-windows-x86_64-setup.exe` e abra o assistente. Ele prepara a CLI,
 Python, Conan, CMake, Ninja, Emscripten, Node.js, MSVC e Windows SDK e registra o PATH do usuário.
 Depois, basta abrir um terminal novo e executar `cppm doctor` ou criar um projeto.
 
@@ -30,13 +30,13 @@ Para remover, use **Configurações → Aplicativos instalados → cppm**. As fe
 privadas são removidas; projetos, cache Conan e o Visual Studio compartilhado são
 preservados. Entradas de PATH preexistentes também são preservadas.
 
-Instalação silenciosa: `cppm-0.4.2-windows-x86_64-setup.exe /S`.
+Instalação silenciosa: `cppm-0.5.0-windows-x86_64-setup.exe /S`.
 Ela ainda pode pedir UAC para instalar MSVC; código 3010 indica reinicialização
 necessária, sem reiniciar automaticamente.
 
 ## Pacote portátil: somente a CLI
 
-O pacote `cppm-0.4.2-windows-x86_64.zip` contém `cppm.exe`, os instaladores,
+O pacote `cppm-0.5.0-windows-x86_64.zip` contém `cppm.exe`, os instaladores,
 licença e os guias. Ele é destinado a Windows 10/11 x64 e não exige Rust ou
 MinGW no computador do usuário. O compilador usado para gerar a CLI é
 independente do compilador dos seus projetos C++.
@@ -44,10 +44,10 @@ independente do compilador dos seus projetos C++.
 Baixe também o arquivo `.sha256` se quiser conferir o download:
 
 ```powershell
-Get-FileHash .\cppm-0.4.2-windows-x86_64.zip -Algorithm SHA256
-Get-Content .\cppm-0.4.2-windows-x86_64.zip.sha256
-Expand-Archive .\cppm-0.4.2-windows-x86_64.zip -DestinationPath .\cppm-extraido
-cd .\cppm-extraido\cppm-0.4.2-windows-x86_64
+Get-FileHash .\cppm-0.5.0-windows-x86_64.zip -Algorithm SHA256
+Get-Content .\cppm-0.5.0-windows-x86_64.zip.sha256
+Expand-Archive .\cppm-0.5.0-windows-x86_64.zip -DestinationPath .\cppm-extraido
+cd .\cppm-extraido\cppm-0.5.0-windows-x86_64
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 

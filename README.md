@@ -97,7 +97,7 @@ Os scripts remotos e a consulta de versões passam a funcionar após a primeira
 release publicada pelo novo workflow `release.yml`, que inclui o arquivo `VERSION`.
 
 Baixe os pacotes na [última release](https://github.com/GaussNoob/cppm/releases/latest).
-No Windows, execute `cppm-0.4.2-windows-x86_64-setup.exe`: o assistente instala a
+No Windows, execute `cppm-0.5.0-windows-x86_64-setup.exe`: o assistente instala a
 CLI, Python, Conan, CMake, Ninja, Emscripten e seu Node.js privado, prepara MSVC e Windows SDK se faltarem e
 configura o PATH. Depois, abra um terminal novo e use `cppm`. A etapa do
 compilador pode pedir administrador e baixar vários GB.
