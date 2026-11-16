@@ -116,8 +116,10 @@ fn configure_profiles(
         .arg("tools.env.virtualenv:powershell=powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass")
         // ICU's Windows recipe runs Autotools through MSYS/bash. Its shell
         // commands cannot be parsed by PowerShell; keep Conan's bash handling.
+        // `!` unsets the global string value for ICU; `False` cannot be
+        // composed with a string and makes every graph with ICU fail.
         .arg("--conf:all")
-        .arg("icu/*:tools.env.virtualenv:powershell=False");
+        .arg("icu/*:tools.env.virtualenv:powershell=!");
     if !options.verbose {
         command.arg("-vwarning");
     }
