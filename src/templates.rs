@@ -87,23 +87,22 @@ if(BUILD_TESTING)
 "#
         ),
     );
-    let details = match template {
-        Template::App => "`cppm run dev` compiles and runs the application.",
-        Template::Drogon => {
-            "`cppm run dev` starts the API at http://127.0.0.1:8080.\n\nGET `/` and `/health` return JSON. Change the port with `cppm run dev -- --port 9090`.\n`cppm run test` starts a temporary server and checks its health endpoint. Python 3 is required for that test."
-        }
-        Template::Wasm => {
-            "The complete cppm Windows setup installs Emscripten and its private Node.js automatically. If you installed cppm 0.4.1, rerun the current Windows setup and open a new terminal; keep this project.\nFor other installations, install the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) and configure it once with `emsdk activate latest`.\nCppm automatically finds SDKs selected with `CPPM_EMSDK` or `EMSDK`, tools in PATH, SDKs in `~/emsdk` or `~/.local/share/cppm/emsdk`, and the SDK in a local cppm checkout.\nYou can run `cppm run dev` in a fresh terminal without sourcing an environment script.\nTo select another SDK, set `CPPM_EMSDK` to its directory. Existing manually activated environments also work.\nRun `cppm doctor` in this directory to see the selected SDK and check Emscripten, Node.js and Python 3 by compiling a WebAssembly probe.\n\n`cppm run dev` compiles and serves the application at http://127.0.0.1:8080.\nThe command prints the HTML URL. Change the port with `cppm run dev -- --port 9090`.\n`cppm run build` generates HTML, JS and WASM in `.cppm/build/wasm-release/bin/`.\n`cppm run test` runs the generated JS/WASM with Node.js.\nPython 3 is required for the development server. External Conan dependencies for WASM are not supported yet."
-        }
+    let guide = match template {
+        Template::App => APP_GUIDE,
+        Template::Drogon => DROGON_GUIDE,
+        Template::Wasm => WASM_GUIDE,
     };
     files.insert(
         "README.md",
-        format!(
-            "# {name}\n\n{details}\n\n```sh\ncppm run dev\ncppm run build\ncppm run test\n```\n\nUse `cppm watch` to rebuild and restart development when you save source/configuration files.\n`cppm watch test` reruns tests after edits. Press Ctrl+C to stop.\nIn WASM projects, refresh the browser after rebuilding.\nArguments can be forwarded, for example `cppm watch dev -- --port 9090` for Drogon/WASM.\n\nRepeated builds reuse unchanged dependencies and CMake configuration.\nUse `cppm build --fresh` to force dependency preparation and a new CMake cache.\n`cppm clean --dry-run` previews build cleanup; `cppm clean` removes build artifacts while keeping dependencies and sources.\n\nVS Code: Ctrl+Shift+B builds the project. Use `Tasks: Run Task` -> `cppm: run` to run it or `cppm: watch` to develop with automatic restarts.\nOpen the project folder, or run `cppm vscode --workspace ..` if the editor opened its parent.\n"
-        ),
+        format!("{}{COMMON_GUIDE}", guide.replace("{name}", &name)),
     );
     Scaffold { manifest, files }
 }
+
+const APP_GUIDE: &str = include_str!("templates/app.md");
+const DROGON_GUIDE: &str = include_str!("templates/drogon.md");
+const WASM_GUIDE: &str = include_str!("templates/wasm.md");
+const COMMON_GUIDE: &str = include_str!("templates/common.md");
 
 const APP: &str =
     "#include <iostream>\n\nint main() {\n    std::cout << \"Hello from C++!\\n\";\n}\n";
@@ -135,6 +134,7 @@ int main(int argc, char** argv) {
         body["framework"] = "drogon";
         callback(drogon::HttpResponse::newHttpJsonResponse(body));
     };
+    // Add routes here, or move them into controllers in src/; README.md shows how.
     drogon::app().registerHandler("/", health, {drogon::Get});
     drogon::app().registerHandler("/health", health, {drogon::Get});
     std::cout << "Listening at http://127.0.0.1:" << port << std::endl;
@@ -201,7 +201,8 @@ const WASM_TEST: &str = r#"    if(DEFINED ENV{EMSDK_NODE} AND EXISTS "$ENV{EMSDK
         find_program(CPPM_NODE_EXECUTABLE NAMES node nodejs REQUIRED)
     endif()
     add_test(NAME wasm_smoke COMMAND "${CPPM_NODE_EXECUTABLE}"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${PROJECT_NAME}.js")
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${PROJECT_NAME}.js"
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:${PROJECT_NAME}>")
 "#;
 
 const WASM_SHELL: &str = r#"<!doctype html>

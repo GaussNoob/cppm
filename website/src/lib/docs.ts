@@ -99,7 +99,7 @@ export const docs: readonly DocTopic[] = [
     id: "templates", number: "07", category: "No projeto", title: "Templates", short: "App, API HTTP e WebAssembly", label: "ESCOLHA UM PONTO DE PARTIDA",
     description: "Comece com uma aplicação nativa, uma API Drogon ou um módulo WebAssembly.", keywords: "template drogon api http wasm webassembly emscripten node python servidor porta serve",
     code: "cppm init meu-app\ncppm init minha-api --template drogon\ncppm init meu-wasm --template wasm", filename: "Terminal",
-    paragraphs: ["O template padrão cria manifesto, CMake, fonte e teste de execução. Drogon inclui a dependência, rotas / e /health, respostas JSON e um teste HTTP.", "No WASM, ative o SDK Emscripten. run dev gera HTML, JS e WASM e serve o resultado localmente. run test executa o módulo com Node.js."],
+    paragraphs: ["O template padrão cria manifesto, CMake, fonte e teste de execução. Drogon inclui a dependência, rotas / e /health, respostas JSON e um teste HTTP.", "No WASM, ative o SDK Emscripten. run dev gera HTML, JS e WASM e serve o resultado localmente. run test executa o módulo com Node.js.", "Cada projeto criado traz um README.md que funciona como guia: rotas, controllers e arquivos estáticos no Drogon; chamadas entre C++ e JavaScript, loop de animação, assets e publicação no WASM; testes e bibliotecas no app nativo."],
     note: "Python 3 é usado pelo servidor WASM e pelo teste HTTP Drogon. Bibliotecas Conan nativas não podem ser usadas no target WASM nesta versão.", related: "dependencias", reference: "/docs/guide.md",
     sections: [{ id: "portas", title: "Portas de desenvolvimento", code: "cppm -C minha-api run dev -- --port 9090\ncppm -C meu-wasm run dev -- --port 9090", filename: "Escolher outra porta" }],
   },

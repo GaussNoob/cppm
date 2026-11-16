@@ -494,6 +494,15 @@ cppm init minha-api --template drogon
 cppm init meu-wasm --template wasm
 ```
 
+Cada template gera um `README.md` que é um guia de desenvolvimento do próprio
+projeto, com exemplos testados de como continuar:
+
+| Template | O README ensina a |
+| --- | --- |
+| `app` | dividir o código em arquivos, usar bibliotecas, receber argumentos, escrever testes com Catch2 |
+| `drogon` | criar rotas com parâmetros, organizar controllers, receber JSON via POST, servir HTML estático, testar rotas novas, publicar |
+| `wasm` | editar a página, chamar C++ pelo JavaScript (Embind), alterar o DOM pelo C++, loop de animação com SDL2, empacotar arquivos, usar bibliotecas e publicar em hospedagem estática |
+
 O template nativo cria uma aplicação de console. Drogon cria uma API com rotas
 `/` e `/health`, resposta JSON e teste HTTP real. `run dev` usa a porta 8080;
 troque com `cppm run dev -- --port 9090`.
