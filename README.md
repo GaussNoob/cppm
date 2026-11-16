@@ -12,12 +12,20 @@ cppm run build
 cppm run test
 ```
 
-Para começar com um servidor HTTP ou WebAssembly:
+Para começar com um servidor HTTP, WebAssembly ou um app com interface gráfica:
 
 ```sh
 cppm init minha-api --template drogon
 cppm init meu-wasm --template wasm
+cppm init meu-app --template raven   # ou --template gui
 ```
+
+O template Raven cria um app desktop com interface gráfica moderna usando
+[Raven](https://github.com/oscar-soirey/Raven): a tela fica em `ui/main.xml`,
+a lógica em C++, e salvar o XML com o app aberto atualiza a janela na hora.
+O Raven 0.2.3 é baixado uma vez pelo CMake, com hash verificado, para
+`.cppm/vendor/`. `cppm run test` valida a interface sem abrir janela. No Linux,
+são necessários os headers do X11 e um driver Vulkan.
 
 O template Drogon já inclui a dependência, as rotas `/` e `/health` com resposta
 JSON e um teste HTTP. `cppm run dev` inicia a API em `http://127.0.0.1:8080`.

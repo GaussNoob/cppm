@@ -13,6 +13,8 @@ pub enum Template {
     Drogon,
     #[value(alias = "webassembly")]
     Wasm,
+    #[value(alias = "gui")]
+    Raven,
 }
 
 pub struct Scaffold {
@@ -44,6 +46,11 @@ pub fn scaffold(name: String, template: Template) -> Scaffold {
             );
             files.insert("web/shell.html", WASM_SHELL.into());
             (APP, WASM_TEST, WASM_CMAKE)
+        }
+        Template::Raven => {
+            files.insert("ui/main.xml", RAVEN_XML.replace("{name}", &name));
+            files.insert("ui/strings.csv", RAVEN_STRINGS.into());
+            (RAVEN, RAVEN_TEST, RAVEN_CMAKE)
         }
     };
     files.insert("src/main.cpp", main.into());
@@ -91,6 +98,7 @@ if(BUILD_TESTING)
         Template::App => APP_GUIDE,
         Template::Drogon => DROGON_GUIDE,
         Template::Wasm => WASM_GUIDE,
+        Template::Raven => RAVEN_GUIDE,
     };
     files.insert(
         "README.md",
@@ -102,6 +110,7 @@ if(BUILD_TESTING)
 const APP_GUIDE: &str = include_str!("templates/app.md");
 const DROGON_GUIDE: &str = include_str!("templates/drogon.md");
 const WASM_GUIDE: &str = include_str!("templates/wasm.md");
+const RAVEN_GUIDE: &str = include_str!("templates/raven.md");
 const COMMON_GUIDE: &str = include_str!("templates/common.md");
 
 const APP: &str =
@@ -221,3 +230,85 @@ const WASM_SHELL: &str = r#"<!doctype html>
 </body>
 </html>
 "#;
+
+const RAVEN: &str = r#"#include <Raven.h>
+
+#include <cstring>
+#include <iostream>
+
+// Folder with main.xml and strings.csv, set in CMakeLists.txt.
+#ifndef APP_UI_DIR
+#define APP_UI_DIR "ui"
+#endif
+
+static Rid g_window = R_INVALID_ID;
+static int g_clicks = 0;
+
+int main(int argc, char** argv) {
+    // --check loads the interface without opening a window; the tests use it.
+    const bool check = argc > 1 && std::strcmp(argv[1], "--check") == 0;
+    if (!Rinit(check ? R_BACKEND_NULL : R_BACKEND_VULKAN)) {
+        std::cerr << "Raven could not start (is a Vulkan driver installed?)\n";
+        return 1;
+    }
+    Rlocale_load_csv(APP_UI_DIR "/strings.csv");
+    Rlocale_set_language(Rlocale_get_system_language());
+
+    // OnClicked="app.clicked" in ui/main.xml calls this function.
+    Raction_bind("app.clicked", [](Rid, const char*, void*) {
+        g_clicks++;
+        Rlabel_set_text(Rwidget_find(g_window, "status"), Rtr_plural("clicks", g_clicks));
+    }, nullptr);
+
+    g_window = Rwindow_create_from_xml_file(APP_UI_DIR "/main.xml");
+    if (g_window == R_INVALID_ID) {
+        std::cerr << "Could not load " APP_UI_DIR "/main.xml\n";
+        Rshutdown();
+        return 1;
+    }
+    if (check) {
+        const bool ok = Rwidget_find(g_window, "status") != R_INVALID_ID;
+        Rshutdown();
+        std::cout << (ok ? "interface ok\n" : "widget 'status' not found\n");
+        return ok ? 0 : 1;
+    }
+    while (Rdraw_frame()) {}
+    Rshutdown();
+}
+"#;
+
+const RAVEN_XML: &str = r#"<!-- Interface do app. Salve com o programa aberto e a janela se atualiza sozinha. -->
+<Window Title="{name}" Width="480" Height="320">
+	<VBox Spacing="12" Slot.Padding="24">
+		<Label Text="@app.title" TextSize="24"/>
+		<Label Name="status" Text="@app.none" Opacity="0.7"/>
+		<Button Text="@app.button" Style="Primary" OnClicked="app.clicked" Slot.HAlign="Left"/>
+	</VBox>
+</Window>
+"#;
+
+const RAVEN_STRINGS: &str = "key,en,pt
+app.title,Hello from Raven!,Olá do Raven!
+app.none,You have not clicked yet.,Você ainda não clicou.
+app.button,Click me,Clique aqui
+clicks.one,{n} click,{n} clique
+clicks.other,{n} clicks,{n} cliques
+";
+
+const RAVEN_CMAKE: &str = r#"
+# Raven GUI (https://github.com/oscar-soirey/Raven), downloaded once into .cppm/vendor.
+include(FetchContent)
+set(CPPM_RAVEN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.cppm/vendor/raven-0.2.3")
+if(EXISTS "${CPPM_RAVEN_DIR}/CMakeLists.txt")
+    set(FETCHCONTENT_SOURCE_DIR_RAVEN "${CPPM_RAVEN_DIR}")
+endif()
+FetchContent_Declare(raven
+    URL "https://github.com/oscar-soirey/Raven/archive/refs/tags/v0.2.3.tar.gz"
+    URL_HASH SHA256=276d983bd8732437181eed5e955cedec36168f97e89a2013f61f7785935beb90
+    SOURCE_DIR "${CPPM_RAVEN_DIR}")
+FetchContent_MakeAvailable(raven)
+target_link_libraries(${PROJECT_NAME} PRIVATE raven::raven)
+target_compile_definitions(${PROJECT_NAME} PRIVATE APP_UI_DIR="${CMAKE_CURRENT_SOURCE_DIR}/ui")
+"#;
+
+const RAVEN_TEST: &str = "    add_test(NAME ui_check COMMAND ${PROJECT_NAME} --check)\n";

@@ -492,6 +492,7 @@ CONAN_HOME=/tmp/cppm-obf-qa CPPM_TEST_BUNDLED_OBF=1 cargo test --locked --test r
 cppm init app-nativo
 cppm init minha-api --template drogon
 cppm init meu-wasm --template wasm
+cppm init meu-gui --template raven
 ```
 
 Cada template gera um `README.md` que é um guia de desenvolvimento do próprio
@@ -502,6 +503,15 @@ projeto, com exemplos testados de como continuar:
 | `app` | dividir o código em arquivos, usar bibliotecas, receber argumentos, escrever testes com Catch2 |
 | `drogon` | criar rotas com parâmetros, organizar controllers, receber JSON via POST, servir HTML estático, testar rotas novas, publicar |
 | `wasm` | editar a página, chamar C++ pelo JavaScript (Embind), alterar o DOM pelo C++, loop de animação com SDL2, empacotar arquivos, usar bibliotecas e publicar em hospedagem estática |
+| `raven` (`gui`) | montar telas em XML com edição ao vivo, ligar botões a funções C++, ler campos, atualizar listas, trocar temas e visual, traduzir, validar a interface sem janela e distribuir |
+
+O template Raven usa a biblioteca [Raven](https://github.com/oscar-soirey/Raven)
+(Apache-2.0). O `CMakeLists.txt` baixa a release 0.2.3 com SHA-256 fixo para
+`.cppm/vendor/raven-0.2.3`, que é reaproveitada pelos builds Debug e Release e
+preservada pelo `cppm clean`. O primeiro build precisa de internet e de `git`.
+No Linux, instale os headers do X11 e um driver Vulkan; no Windows, o Build Tools
+do Visual Studio basta. O teste `ui_check` executa o app com `--check`, que carrega
+`ui/main.xml` com o backend sem janela do Raven.
 
 O template nativo cria uma aplicação de console. Drogon cria uma API com rotas
 `/` e `/health`, resposta JSON e teste HTTP real. `run dev` usa a porta 8080;

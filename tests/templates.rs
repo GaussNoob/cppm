@@ -293,3 +293,60 @@ fn wasm_without_sdk_explains_activation_before_preparing_dependencies() {
         assert!(!temp.path().join(path).exists(), "{path}");
     }
 }
+
+#[test]
+fn raven_template_scaffolds_interface_guide_and_pinned_download() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    run(root, &["init", "--template", "gui", "--name", "desk-app"]);
+    let xml = fs::read_to_string(root.join("ui/main.xml")).unwrap();
+    assert!(xml.contains(r#"<Window Title="desk-app""#), "{xml}");
+    assert!(xml.contains(r#"Name="status""#) && xml.contains(r#"OnClicked="app.clicked""#));
+    assert!(
+        fs::read_to_string(root.join("ui/strings.csv"))
+            .unwrap()
+            .starts_with("key,en,pt\n")
+    );
+    let cmake = fs::read_to_string(root.join("CMakeLists.txt")).unwrap();
+    for expected in [
+        "Raven/archive/refs/tags/v0.2.3.tar.gz",
+        "URL_HASH SHA256=",
+        "raven::raven",
+        "APP_UI_DIR=",
+        "COMMAND ${PROJECT_NAME} --check",
+    ] {
+        assert!(cmake.contains(expected), "missing {expected}:\n{cmake}");
+    }
+    assert!(
+        fs::read_to_string(root.join("src/main.cpp"))
+            .unwrap()
+            .contains("R_BACKEND_NULL")
+    );
+    let readme = fs::read_to_string(root.join("README.md")).unwrap();
+    assert!(readme.starts_with("# desk-app\n") && readme.contains("Raction_bind"));
+    let manifest = fs::read_to_string(root.join("cppm.toml")).unwrap();
+    assert!(!manifest.contains("target = \"wasm\""), "{manifest}");
+}
+
+#[test]
+#[ignore = "requires network access on first run, a C/C++ toolchain, CMake and Ninja (and X11 headers on Linux)"]
+fn raven_template_builds_and_validates_its_interface_headless() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    run(root, &["init", "--template", "raven", "--name", "desk-app"]);
+    assert!(run(root, &["run", "test", "--", "--verbose"]).contains("interface ok"));
+    fs::write(
+        root.join("ui/main.xml"),
+        r#"<Window Title="x"><VBox><Label Name="other"/></VBox></Window>"#,
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_cppm"))
+        .current_dir(root)
+        .args(["run", "test"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "a missing status widget must fail the check"
+    );
+}
