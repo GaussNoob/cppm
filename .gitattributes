@@ -1,0 +1,2 @@
+# Template guides are embedded with include_str!; keep generated READMEs LF on every OS.
+src/templates/*.md text eol=lf
