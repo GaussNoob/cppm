@@ -113,7 +113,11 @@ fn configure_profiles(
     #[cfg(windows)]
     command
         .arg("--conf:all")
-        .arg("tools.env.virtualenv:powershell=powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass");
+        .arg("tools.env.virtualenv:powershell=powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass")
+        // ICU's Windows recipe runs Autotools through MSYS/bash. Its shell
+        // commands cannot be parsed by PowerShell; keep Conan's bash handling.
+        .arg("--conf:all")
+        .arg("icu/*:tools.env.virtualenv:powershell=False");
     if !options.verbose {
         command.arg("-vwarning");
     }

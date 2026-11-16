@@ -7,12 +7,13 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 from urllib.request import urlopen
 
 
 binary, directory, template, mode = sys.argv[1:]
 project = Path(directory)
-name = 'web-app' if template == 'wasm' else 'api-app'
+name = tomllib.loads((project / 'cppm.toml').read_text(encoding='utf-8'))['package']['name']
 with socket.socket() as reservation:
     reservation.bind(('127.0.0.1', 0))
     port = reservation.getsockname()[1]
