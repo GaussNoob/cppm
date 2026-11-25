@@ -95,7 +95,10 @@ fn configure_profiles(
             "build_type={}",
             if release { "Release" } else { "Debug" }
         ))
-        .arg("--settings:host")
+        // Apply the manifest's C++ standard to build-context tools as well:
+        // Conan detects MSVC with compiler.cppstd=14 by default, which makes
+        // C++17+ tool_requires (such as protobuf/protoc for OpenCV) fail.
+        .arg("--settings:all")
         .arg(format!(
             "compiler.cppstd={}",
             project.manifest.package.cpp_standard
@@ -104,7 +107,7 @@ fn configure_profiles(
     // Qt's Linux build requires GNU integer extensions (notably __int128).
     // Keep this scoped to Qt: the application still uses its declared standard.
     #[cfg(target_os = "linux")]
-    command.arg("--settings:host").arg(format!(
+    command.arg("--settings:all").arg(format!(
         "qt/*:compiler.cppstd=gnu{}",
         project.manifest.package.cpp_standard
     ));
@@ -356,4 +359,85 @@ pub fn install(
         graph,
         registration,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::manifest::Manifest;
+
+    fn test_project(root: &Path, cpp_standard: u8) -> Project {
+        let mut manifest = Manifest::new("app".into());
+        manifest.package.cpp_standard = cpp_standard;
+        Project {
+            root: root.to_path_buf(),
+            manifest,
+        }
+    }
+
+    fn test_options(store_dir: Option<PathBuf>) -> InstallOptions {
+        InstallOptions {
+            profile: "default".into(),
+            store_dir,
+            offline: true,
+            frozen: false,
+            verbose: false,
+        }
+    }
+
+    #[test]
+    fn configure_profiles_applies_cpp_standard_to_host_and_build() {
+        let temp = tempfile::tempdir().unwrap();
+        let project = test_project(temp.path(), 20);
+        let options = test_options(None);
+        let mut command = Command::new("conan");
+        configure_profiles(&mut command, &project, false, &options);
+        let args: Vec<String> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        let has_pair = |flag: &str, value: &str| {
+            args.windows(2)
+                .any(|pair| pair[0] == flag && pair[1] == value)
+        };
+        assert!(has_pair("--settings:host", "build_type=Debug"), "{args:?}");
+        assert!(has_pair("--settings:all", "compiler.cppstd=20"), "{args:?}");
+        assert!(
+            !has_pair("--settings:host", "compiler.cppstd=20"),
+            "{args:?}"
+        );
+        #[cfg(target_os = "linux")]
+        assert!(
+            has_pair("--settings:all", "qt/*:compiler.cppstd=gnu20"),
+            "{args:?}"
+        );
+    }
+
+    #[test]
+    fn resolved_profiles_override_detected_cppstd_for_build_tools() {
+        let Some(_conan) = platform::find_executable("conan") else {
+            return;
+        };
+        let temp = tempfile::tempdir().unwrap();
+        let home = temp.path().join("conan");
+        let root = temp.path().join("project");
+        fs::create_dir_all(home.join("profiles")).unwrap();
+        fs::create_dir(&root).unwrap();
+        #[cfg(windows)]
+        let default_profile = "[settings]\narch=x86_64\nbuild_type=Release\ncompiler=msvc\ncompiler.cppstd=14\ncompiler.runtime=dynamic\ncompiler.version=194\nos=Windows\n";
+        #[cfg(not(windows))]
+        let default_profile = "[settings]\narch=x86_64\nbuild_type=Release\ncompiler=gcc\ncompiler.cppstd=gnu14\ncompiler.libcxx=libstdc++11\ncompiler.version=13\nos=Linux\n";
+        fs::write(home.join("profiles/default"), default_profile).unwrap();
+
+        let project = test_project(&root, 20);
+        let options = test_options(Some(home));
+        let raw = resolved_profiles(&project, false, &options)
+            .unwrap()
+            .expect("conan profile show should resolve both profiles");
+        let profiles: Value = serde_json::from_slice(&raw).unwrap();
+        assert_eq!(profiles["host"]["settings"]["build_type"], "Debug");
+        assert_eq!(profiles["build"]["settings"]["build_type"], "Release");
+        assert_eq!(profiles["host"]["settings"]["compiler.cppstd"], "20");
+        assert_eq!(profiles["build"]["settings"]["compiler.cppstd"], "20");
+    }
 }
